@@ -105,7 +105,7 @@ app.use("/api", (req, res, next) => {
 });
 
 app.use((req, res, next) => {
-  if (req.tebexWebhook || req.path === "/api/photos") return next();
+  if (req.tebexWebhook || req.path === "/api/photos" || req.path === "/api/market") return next(); // estas rutas traen su propio lector (aceptan una foto)
   return express.json({ limit: "20kb" })(req, res, next);
 });
 const me = async (req) => {
@@ -256,6 +256,8 @@ app.get("/p/:id(\\d+)", async (req, res) => { // enlace propio de cada publicaci
 app.get("/robots.txt", (req, res) => res.type("text/plain").send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /auth/\nDisallow: /notificaciones\nDisallow: /amigos\n\nSitemap: ${BASE}/sitemap.xml\n`));
 app.get("/sitemap.xml", (req, res) => res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Object.keys(ROUTES).filter((u) => u !== "/perfil" && u !== "/notificaciones" && u !== "/amigos" && u !== "/verificar").map((u) => `  <url><loc>${BASE}${u}</loc><changefreq>${u === "/" || u === "/noticias" ? "daily" : "weekly"}</changefreq><priority>${u === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}\n</urlset>\n`));
 app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", setHeaders: (res, f) => { if (/[\\/]assets[\\/]fonts[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=31536000, immutable"); else if (/[\\/]assets[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=86400"); } }));
+require("./routes/market")(app, { express, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me });
+
 require("./routes/vacantes")(app, { E, str, pid, MIN_POST, SKIN_COL, ADMIN_LEVELS, q, hit, me, BCAST, notify });
 
 // ---- Tienda SampCity ----
@@ -274,6 +276,7 @@ app.use((err, req, res, next) => {
   await q("CREATE TABLE IF NOT EXISTS web_signups (player_id INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_likes (post_id INT NOT NULL, player_id INT NOT NULL, PRIMARY KEY (post_id, player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_comments (id INT AUTO_INCREMENT PRIMARY KEY, post_id INT NOT NULL, player_id INT NOT NULL, author VARCHAR(24) NOT NULL, body VARCHAR(300) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY p (post_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_market (id INT AUTO_INCREMENT PRIMARY KEY, seller INT NOT NULL, cat VARCHAR(12) NOT NULL, title VARCHAR(80) NOT NULL, price BIGINT NOT NULL DEFAULT 0, body VARCHAR(600) NOT NULL DEFAULT '', img INT NULL, status TINYINT NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY st (status, id), KEY seller (seller)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_images (id INT AUTO_INCREMENT PRIMARY KEY, mime VARCHAR(16) NOT NULL, data MEDIUMBLOB NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_contact (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(80) NOT NULL, contact VARCHAR(80) NOT NULL, body VARCHAR(1000) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_guide_searches (q VARCHAR(60) NOT NULL PRIMARY KEY, results INT NOT NULL DEFAULT 0, n INT NOT NULL DEFAULT 1, last_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");

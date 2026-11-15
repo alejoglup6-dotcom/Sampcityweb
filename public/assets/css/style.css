@@ -595,3 +595,28 @@ select{width:100%;background:var(--in);border:1px solid var(--b);border-radius:.
 .hsb-ct .av{width:2.2rem;height:2.2rem;font-size:.9rem}
 .hsb-dot{flex:none;width:.6rem;height:.6rem;border-radius:50%;background:var(--okc)}
 .hsb .m{font-size:.88rem;margin-bottom:.6rem}
+/* Marketplace: anuncios entre jugadores */
+.mkf{display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem}.mkf input{margin:0;flex:1}
+.mkcat{display:flex;gap:.45rem;overflow-x:auto;padding-bottom:.7rem;margin-bottom:.4rem;scrollbar-width:none}.mkcat::-webkit-scrollbar{display:none}
+.mkcat button{flex:none;display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--b);border-radius:99px;background:var(--card);color:var(--m);font-weight:600;font-size:.88rem;padding:.45rem .85rem}
+.mkcat button.on{border-color:var(--rojo);color:var(--t);background:color-mix(in srgb,var(--rojo) 14%,var(--card))}.mkcat .ic{width:1rem;height:1rem}
+.mkl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
+@media(min-width:720px){.mkl{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.mkl .inf,.mkl .infend{grid-column:1/-1}
+.mkc{position:relative;display:grid;gap:.1rem;text-align:left;border:1px solid var(--b);border-radius:.9rem;background:var(--card);color:var(--t);padding:0 0 .6rem;overflow:hidden;transition:transform .15s ease,border-color .15s ease}
+.mkc:hover{border-color:var(--rojo);transform:translateY(-2px)}
+.mkc img,.mkc .mkph{width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--in);margin-bottom:.45rem}
+.mkc .mkph{display:grid;place-items:center}.mkc .mkph .ic{width:2.6rem;height:2.6rem;opacity:.55}
+.mkc b{padding:0 .65rem;font-size:1.02rem}.mkc span:not(.mkph){padding:0 .65rem;font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mkc small{padding:0 .65rem;color:var(--m);font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mkc i{position:absolute;top:.5rem;left:.5rem;font-style:normal;font-size:.72rem;font-weight:700;background:#000c;color:#fff;border-radius:99px;padding:.15rem .55rem}
+.mkc.sold img,.mkc.sold .mkph{opacity:.45}
+.mkn{text-align:center;font-size:.8rem;margin-top:1rem}
+.mkd img{width:100%;max-height:22rem;object-fit:contain;background:var(--in);border-radius:.8rem;margin-bottom:.7rem}
+.mkd .mkp{font-size:1.5rem;font-weight:700;color:var(--rosa)}.mkd h3{font-size:1.15rem;margin:.1rem 0 .3rem}
+.mkd .m .ic{width:1rem;height:1rem;vertical-align:-.15rem}.mkd .mkb{margin:.7rem 0;overflow-wrap:anywhere}
+.mks2{display:flex;align-items:center;gap:.6rem;padding:.6rem;border:1px solid var(--b);border-radius:.8rem;margin-top:.8rem}.mks2 small{margin-left:auto;color:var(--okc)}
+.mkd .mkn{text-align:left;margin:.6rem 0}.mka{display:flex;gap:.5rem;flex-wrap:wrap}
+.mkform select{width:100%;background:var(--in);border:1px solid var(--b);border-radius:.7rem;padding:.7rem;color:var(--t);font:inherit;font-size:1rem;margin:.2rem 0 .35rem}
+.mkform input[type=file]{padding:.5rem;font-size:.9rem}
+@media (prefers-reduced-motion:reduce){.mkc{transition:none}.mkc:hover{transform:none}}
