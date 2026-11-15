@@ -12,7 +12,7 @@ $("#fbi").innerHTML=`<a class="fbc" href="samp://${ip}" aria-label="${t("Jugar a
 fbNav();
 return `<div class="fbw"><div class="fbc2">${skin(U.skin,U.name)}<button class="fbpill" onclick="nuevo()">${t("¿Qué estás pensando?")}</button><button class="gal" type="button" onclick="nuevo(1)" aria-label="${t("Galería")}">${ic("galeria")}</button></div>
 ${storyStrip(a.ok?a.d:[])}${frBanner()}${U.friends?"":frEmpty()}`
-+(l.length?l.map(fbPost).join("")+(PG||more?pgn(more):""):(U.friends?frNone():""))+`</div>`}
++(l.length?l.map(fbPost).join("")+infList("/posts?type=feed",l,more,n=>n.map(fbPost).join("")):(U.friends?frNone():""))+`</div>`}
 async function pg_landing(){fbBody("login");await info();setTimeout(bindLanding);
 return `<div class="fbl"><a class="fbd" href="${DISCORD}" target="_blank" rel="noopener">${ic("discord_comentarios")} ${t("Únete al Discord para soporte y eventos")}</a>
 <button class="fbg" type="button" onclick="idioma()">${L==="en"?"English":"Español"}</button>

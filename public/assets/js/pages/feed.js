@@ -4,5 +4,5 @@ async function pg_feedsoc(){
  if(!U)return head+composer();
  const r=await api("/posts?type=feed&page="+PG);if(!r.ok)return fail(r.d.error,view);
  const more=r.d.length>12,l=r.d.slice(0,12);
- return head+frBanner()+composer()+(U.friends?"":frEmpty())+(l.length?l.map(postHtml).join("")+(PG||more?pgn(more):""):(U.friends?frNone():""))}
+ return head+frBanner()+composer()+(U.friends?"":frEmpty())+(l.length?l.map(postHtml).join("")+infList("/posts?type=feed",l,more,n=>n.map(postHtml).join("")):(U.friends?frNone():""))}
 mountPage(pg_feedsoc);

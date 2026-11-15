@@ -568,3 +568,11 @@ input:focus,textarea:focus,.fi:focus-within,.fbf input:focus{border-color:var(--
 
 select{width:100%;background:var(--in);border:1px solid var(--b);border-radius:.7rem;padding:.7rem;color:var(--t);font:inherit;font-size:1rem;margin:.35rem 0}label+select{margin-top:.2rem}
 [hidden]{display:none!important}
+/* Scroll infinito: indicador de carga y mensaje final */
+.inf{display:flex;justify-content:center;align-items:center;min-height:4rem;padding:1rem 0}
+.gal .inf,.nw .inf{grid-column:1/-1}
+.infsp{width:1.8rem;height:1.8rem;border:3px solid var(--b);border-top-color:var(--rojo);border-radius:50%;animation:infr .8s linear infinite}
+@keyframes infr{to{transform:rotate(360deg)}}
+.infend{text-align:center;padding:1.2rem 0 .4rem;font-size:.85rem}
+.gal .infend,.nw .infend{grid-column:1/-1}
+@media (prefers-reduced-motion:reduce){.infsp{animation:none;border-top-color:var(--b);opacity:.7}}

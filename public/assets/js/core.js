@@ -37,9 +37,20 @@ const nCard=(p)=>{(window.PS=window.PS||{})[p.id]=p;const a=esc(p.author.replace
 function leer(id){modal(postHtml(PS[id])+`<button class="btn" onclick="cerrar()">${t("Cerrar")}</button>`,1)}
 const skin=(id,n,c="")=>{const u=INFO.skinUrl&&id!=null&&id!==""?esc(INFO.skinUrl.replace("{id}",encodeURIComponent(id))):"";return `<div class="av sk ${c}">${esc((n||"?")[0])}${u?`<img src="${u}" alt="" loading="lazy" onerror="this.remove()">`:""}</div>`};
 const ago=s=>{const d=(Date.now()-new Date(String(s).replace(" ","T")))/6e4;if(!(d>=0))return"—";const u=d<60?[d,"minuto","minute"]:d<1440?[d/60,"hora","hour"]:d<43200?[d/1440,"día","day"]:[d/43200,"mes","month"],n=Math.max(1,Math.floor(u[0]));return L==="en"?`${n} ${u[2]}${n>1?"s":""} ago`:`hace ${n} ${u[1]}${n>1?(u[1]==="mes"?"es":"s"):""}`};
-const pgn=n=>`<div class="pgn"><button class="btn" ${PG?"":"disabled"} onclick="pag(-1)">« ${t("Anterior")}</button><button class="btn" ${n?"":"disabled"} onclick="pag(1)">${t("Siguiente")} »</button></div>`;
-function cd(){$("#dr").classList.remove("on")}addEventListener("keydown",e=>{if(e.key==="Escape")cd()});
-function pag(d){PG=Math.max(0,PG+d);show(view);scrollTo(0,0)}
+// ---- Scroll infinito: al llegar al final se cargan más publicaciones (sin botones «Anterior / Siguiente») ----
+let INF=null,INFOB=null;
+const INFSP='<span class="infsp" aria-hidden="true"></span>';
+function inf(load,more){INF={load,pg:0,tok,busy:false};return more?`<div id="inf" class="inf" role="status" aria-live="polite">${INFSP}</div>`:`<p class="infend m">${t("Ya viste todo por ahora")}</p>`}
+// l: publicaciones ya dibujadas · url: ruta sin &page= · map: lista nueva → HTML (evita repetidas si llegan publicaciones nuevas mientras bajas)
+function infList(url,l,more,map){const seen=new Set(l.map(p=>p.id));return inf(async pg=>{const r=await api(url+"&page="+pg);if(!r.ok)return null;const n=r.d.slice(0,12).filter(p=>!seen.has(p.id));n.forEach(p=>seen.add(p.id));return{h:map(n),more:r.d.length>12}},more)}
+function infArm(my){if(INFOB){INFOB.disconnect();INFOB=null}const s=$("#inf");if(!s||!INF||INF.tok!==my||!("IntersectionObserver"in window))return;INFOB=new IntersectionObserver(e=>{if(e[0].isIntersecting)infMore(my)},{rootMargin:"700px 0px"});INFOB.observe(s)}
+async function infMore(my){const I=INF,s=$("#inf");if(!I||!s||I.busy||I.tok!==my||my!==tok)return;I.busy=true;
+ let r=null;try{r=await I.load(I.pg+1)}catch{}
+ if(my!==tok||!document.body.contains(s))return;
+ if(!r){I.busy=false;s.innerHTML=`<button class="btn" type="button">${t("Reintentar")}</button>`;s.firstChild.onclick=()=>{s.innerHTML=INFSP;INFOB&&(INFOB.unobserve(s),INFOB.observe(s))};return}
+ I.pg++;s.insertAdjacentHTML("beforebegin",r.h);reveal();
+ if(r.more){I.busy=false;INFOB&&(INFOB.unobserve(s),INFOB.observe(s))}else{INFOB&&INFOB.disconnect();s.outerHTML=`<p class="infend m">${t("Ya viste todo por ahora")}</p>`}}
+Object.assign(EN,{"Ya viste todo por ahora":"You're all caught up"});
 let U=null,INFO={},view=document.body.dataset.v||"news",tok=0,CF="";
 const fecha=s=>new Date(String(s).replace(" ","T")).toLocaleDateString(L==="en"?"en-US":"es-CO",{day:"numeric",month:"short",year:"numeric"}),horas=s=>Math.floor(Number(s||0)/3600)+" h",money=n=>"$"+Number(n||0).toLocaleString(L==="en"?"en-US":"es-CO");
 const NB='<i class="nb" hidden></i>',link=(v,i,x)=>`<a href="${R[v]}" data-v="${v}"><span>${ic(i)}</span>${t(x)}${v==="notif"?NB:""}</a>`;
@@ -122,12 +133,12 @@ if(/Tizen|Web0S|WebOS|SMART-?TV|AFT|Android.*TV|BRAVIA|Roku|CrKey|HbbTV/i.test(n
   const c=a.getBoundingClientRect(),cx=c.x+c.width/2,cy=c.y+c.height/2;let best=null,bs=1e9;
   for(const x of els){if(x===a)continue;const r=x.getBoundingClientRect(),dx=r.x+r.width/2-cx,dy=r.y+r.height/2-cy,al=dx*d[0]+dy*d[1];if(al<=1)continue;const s=al+Math.abs(d[0]?dy:dx)*2;if(s<bs){bs=s;best=x}}
   if(best){best.focus();best.scrollIntoView({block:"center"})}})}
-async function pg_feed(ty){const r=await api("/posts?type="+ty+"&page="+PG);if(!r.ok)return fail(r.d.error,view);const more=r.d.length>12,l=r.d.slice(0,12),cards=ty==="news"||ty==="update";return (ty==="news"?hero():"")+`<h2 class="ttl">${t(TIT[ty])}</h2>`+(U?.canPost?form(ty):"")+(l.length?(cards?`<div class="nw">${l.map((p,i)=>nCard(p,i===0&&!PG)).join("")}</div>`:l.map(postHtml).join(""))+(PG||more?pgn(more):""):`<div class="card m">${t("Aún no hay publicaciones.")}</div>`)+cta()}
+async function pg_feed(ty){const r=await api("/posts?type="+ty+"&page="+PG);if(!r.ok)return fail(r.d.error,view);const more=r.d.length>12,l=r.d.slice(0,12),cards=ty==="news"||ty==="update",sen=l.length?infList("/posts?type="+ty,l,more,n=>cards?n.map(p=>nCard(p,false)).join(""):n.map(postHtml).join("")):"";return (ty==="news"?hero():"")+`<h2 class="ttl">${t(TIT[ty])}</h2>`+(U?.canPost?form(ty):"")+(l.length?(cards?`<div class="nw">${l.map((p,i)=>nCard(p,i===0)).join("")}${sen}</div>`:l.map(postHtml).join("")+sen):`<div class="card m">${t("Aún no hay publicaciones.")}</div>`)+cta()}
 // ---- Cada página registra su renderizador con mountPage() (ver /assets/js/pages/) ----
 let RENDER=null;
 async function show(){const my=++tok,m=$("#main");m.setAttribute("aria-busy","true");m.innerHTML=sk();
  const h=await RENDER();if(my!==tok)return;
- m.innerHTML=h;m.setAttribute("aria-busy","false");m.classList.remove("swap");void m.offsetWidth;m.classList.add("swap");reveal();const nv=NAV.find(n=>n[0]===view);document.title=(window.PTITLE||(nv?t(nv[2]):"SampCity"))+" | SampCity RolePlay";scrollTo(0,0)}
+ m.innerHTML=h;m.setAttribute("aria-busy","false");m.classList.remove("swap");void m.offsetWidth;m.classList.add("swap");reveal();infArm(my);const nv=NAV.find(n=>n[0]===view);document.title=(window.PTITLE||(nv?t(nv[2]):"SampCity"))+" | SampCity RolePlay";scrollTo(0,0)}
 function mountPage(fn){RENDER=fn;boot()}
 async function boot(){const q=new URLSearchParams(location.search),h=location.hash.slice(1);
  if(view==="news"&&R[h]&&R[h]!==location.pathname)return location.replace(R[h]); // enlaces viejos tipo /#fotos
@@ -295,7 +306,7 @@ async function perfilFB(name){
  <nav class="pft" aria-label="${t("Secciones")}">${[["todo","Todo"],["reels","Reels"],["fotos","Fotos"]].map(x=>`<button type="button"${tab===x[0]?' class="on" aria-current="true"':""} onclick="pfTab('${x[0]}')">${t(x[1])}</button>`).join("")}<button type="button"${tab==="amigos"||tab==="guardados"?' class="on"':""} onclick="pfMas(${own})">${t(tab==="amigos"?"Amigos":tab==="guardados"?"Guardados":"Más")} ▾</button></nav></section>`;
  let body="";
  if(tab==="todo"){const r=await api("/posts?type=post&author="+encodeURIComponent(u.name)+"&page="+PG),l=r.ok?r.d.slice(0,12):[],more=r.ok&&r.d.length>12;
-  body=(PG?"":sum)+(own?composer():"")+(l.length?l.map(postHtml).join("")+(PG||more?pgn(more):""):`<div class="card m pfe">${t("Aún no hay publicaciones.")}</div>`)}
+  body=(PG?"":sum)+(own?composer():"")+(l.length?l.map(postHtml).join("")+infList("/posts?type=post&author="+encodeURIComponent(u.name),l,more,n=>n.map(postHtml).join("")):`<div class="card m pfe">${t("Aún no hay publicaciones.")}</div>`)}
  else if(tab==="reels"){const r=await api("/reels?n=24&author="+encodeURIComponent(u.name)),l=r.ok?r.d.items:[];body=l.length||own?reelGrid(l,q,own):`<div class="card m pfe">${t("Aún no hay reels.")}</div>`}
  else if(tab==="guardados"){const r=await api("/reels?n=24&saved=1"),l=r.ok?r.d.items:[];body=l.length?reelGrid(l,"saved=1"):`<div class="card m pfe">${t("No has guardado ningún reel.")}</div>`}
  else if(tab==="fotos"){const r=await api("/user/"+encodeURIComponent(u.name)+"/photos"),l=r.ok?r.d:[];body=l.length?`<div class="pgd">${l.map(x=>`<button type="button" onclick="pfFoto(${x.id},${x.post_id})"><img loading="lazy" decoding="async" src="/media/${x.id}" alt=""></button>`).join("")}</div>`:`<div class="card m pfe">${t("Aún no hay fotos.")}</div>`}
