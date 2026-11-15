@@ -51,12 +51,12 @@ async function infMore(my){const I=INF,s=$("#inf");if(!I||!s||I.busy||I.tok!==my
  if(!r){I.busy=false;s.innerHTML=`<button class="btn" type="button">${t("Reintentar")}</button>`;s.firstChild.onclick=()=>{s.innerHTML=INFSP;INFOB&&(INFOB.unobserve(s),INFOB.observe(s))};return}
  I.pg++;s.insertAdjacentHTML("beforebegin",r.h);reveal();
  if(r.more){I.busy=false;INFOB&&(INFOB.unobserve(s),INFOB.observe(s))}else{INFOB&&INFOB.disconnect();s.outerHTML=`<p class="infend m">${t("Ya viste todo por ahora")}</p>`}}
-Object.assign(EN,{"Ya viste todo por ahora":"You're all caught up"});
+Object.assign(EN,{"Ya viste todo por ahora":"You're all caught up","Ajustes":"Settings","Agrega amigos para ver sus publicaciones":"Add friends to see their posts","Contactos":"Contacts","Aún no tienes amigos.":"You have no friends yet.","Buscar amigos":"Find friends","Personas que quizás conozcas":"People you may know","registrados":"registered","Servidor":"Server","Ver todos":"See all"});
 let U=null,INFO={},view=document.body.dataset.v||"news",tok=0,CF="";
 const fecha=s=>new Date(String(s).replace(" ","T")).toLocaleDateString(L==="en"?"en-US":"es-CO",{day:"numeric",month:"short",year:"numeric"}),horas=s=>Math.floor(Number(s||0)/3600)+" h",money=n=>"$"+Number(n||0).toLocaleString(L==="en"?"en-US":"es-CO");
 const NB='<i class="nb" hidden></i>',link=(v,i,x)=>`<a href="${R[v]}" data-v="${v}"><span>${ic(i)}</span>${t(x)}${v==="notif"?NB:""}</a>`;
 function nav(){$("#menu").innerHTML=NAV.map(n=>link(...n)).join("");
- const G=[["SampCity",["news","feed","reels","amigos","market","notif","perfil","staff","solicitar","top","reglas","guia","faq"]],["Comunidad",["todas","update","fotos","testimonios","comunidad","contacto"]]];$("#drn").innerHTML=G.map(g=>`<h5>${t(g[0]).toUpperCase()}</h5>`+g[1].map(v=>{const n=NAV.find(x=>x[0]===v);return `<a href="${R[v]}" data-v="${v}" onclick="cd()">${t(v==="news"?"Inicio":v==="staff"?"Equipo":n[2])}${v==="notif"?NB:""}</a>`}).join("")).join("");
+ const G=[["SampCity",["news","feed","reels","amigos","market","notif","perfil","staff","solicitar","top","reglas","guia","faq"]],["Comunidad",["todas","update","fotos","testimonios","comunidad","contacto"]]];$("#drn").innerHTML=G.map(g=>`<h5>${t(g[0]).toUpperCase()}</h5>`+g[1].map(v=>{const n=NAV.find(x=>x[0]===v);return `<a href="${R[v]}" data-v="${v}" onclick="cd()">${t(v==="news"?"Inicio":v==="staff"?"Equipo":n[2])}${v==="notif"?NB:""}</a>`}).join("")).join("")+`<h5>${t("Ajustes").toUpperCase()}</h5><button type="button" class="dra js-theme"><span class="e"></span><span class="lbl"></span></button><button type="button" class="dra js-lang"><span class="e"></span><span class="lbl"></span></button>`;
 
  document.querySelectorAll("[data-v]").forEach(a=>a.classList.toggle("on",a.dataset.v===view));paintBadge()}
 function modal(h,big){$("#modc").innerHTML=h;$("#mod").classList.toggle("big",!!big);$("#mod").classList.add("on");($("#modc input,#modc .btn")||{focus(){}}).focus()}function cerrar(){$("#mod").classList.remove("on")}
@@ -276,7 +276,7 @@ async function frDo(n,act){
  if(st==="sent")toast(t("Solicitud enviada"));
  await init(); // actualiza contadores (amigos, solicitudes, avisos)
  if(boxes.some(b=>"rl" in b.dataset))show()} // las listas que cambian de contenido se vuelven a dibujar
-const frEmpty=()=>`<section class="card fre"><div class="fri">${ic("etiquetar")}</div><h3>${t("Tu feed está vacío")}</h3><p class="m">${t("Explora perfiles y agrega personas para ver sus publicaciones aquí.")}</p><a class="btn p" href="/amigos">${t("Buscar amigos")}</a></section>`;
+const frEmpty=has=>has?`<a class="card frb" href="/amigos"><span>${ic("etiquetar")} ${t("Agrega amigos para ver sus publicaciones")}</span><b>›</b></a>`:`<section class="card fre"><div class="fri">${ic("etiquetar")}</div><h3>${t("Tu feed está vacío")}</h3><p class="m">${t("Explora perfiles y agrega personas para ver sus publicaciones aquí.")}</p><a class="btn p" href="/amigos">${t("Buscar amigos")}</a></section>`;
 const frNone=()=>`<section class="card fre"><p class="m">${t("Tus amigos aún no han publicado nada.")}</p><a class="btn" href="/amigos">${t("Buscar más amigos")}</a></section>`;
 const frBanner=()=>U&&U.freq>0?`<a class="card frb" href="/amigos"><span>${ic("etiquetar")} ${t("Solicitudes de amistad")}</span><b>${U.freq}</b></a>`:"";
 

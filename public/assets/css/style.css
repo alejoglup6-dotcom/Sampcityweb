@@ -38,7 +38,7 @@ input,textarea{width:100%;background:var(--in);border:1px solid var(--b);border-
 .act{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.7rem}.cm{margin-top:.6rem;display:grid;gap:.5rem}.cmt{background:var(--in);border:1px solid var(--b);border-radius:.7rem;padding:.5rem .7rem;overflow-wrap:anywhere}.cf{display:flex;gap:.5rem;align-items:center;margin-top:.5rem}.cf input{margin:0}.lk{background:none;border:0;color:var(--rosa);font-size:.75rem;text-decoration:underline}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;place-items:center;z-index:9;padding:.9rem}.modal.on{display:grid}.modal .card{width:min(28rem,100%);max-height:92dvh;overflow:auto;margin:0}.modal.big .card{width:min(60rem,100%)}.modal img{max-width:100%;border-radius:.7rem}
 .mm{display:grid;gap:.4rem}.msg{color:var(--err);font-size:.85rem;min-height:1.2em}.ok{color:var(--okc)}
-.sk{height:7rem;background:linear-gradient(90deg,var(--card),var(--hov),var(--card));background-size:200% 100%;animation:sh 1.3s linear infinite}@keyframes sh{to{background-position:-200% 0}}
+.sk:not(.av){height:7rem;background:linear-gradient(90deg,var(--card),var(--hov),var(--card));background-size:200% 100%;animation:sh 1.3s linear infinite}@keyframes sh{to{background-position:-200% 0}}
 .ft{text-align:center;color:var(--m);font-size:.8rem;padding:1rem 1rem 2rem}
 @media(hover:none) and (pointer:coarse){.btn{min-height:2.9rem}.menu a{padding:.85rem}}
 @media(min-width:720px){body{padding-bottom:0}.tabs{display:none}.top{padding-inline:1.2rem}.top img{height:2.3rem}
@@ -576,3 +576,22 @@ select{width:100%;background:var(--in);border:1px solid var(--b);border-radius:.
 .infend{text-align:center;padding:1.2rem 0 .4rem;font-size:.85rem}
 .gal .infend,.nw .infend{grid-column:1/-1}
 @media (prefers-reduced-motion:reduce){.infsp{animation:none;border-top-color:var(--b);opacity:.7}}
+/* Menú lateral: ajustes (tema e idioma) accesibles en celular */
+.dr .dra{display:flex;align-items:center;gap:.7rem;width:100%;padding:.8rem .2rem;font-weight:600;font-size:1.05rem;color:var(--t);background:none;border:0;text-align:left}
+.dr .dra .ic{width:1.4rem;height:1.4rem;color:var(--rojo)}.dr .dra .e{display:grid;place-items:center}
+/* Portada: columna derecha en pantallas anchas (servidor, contactos, sugerencias) */
+.hsb{display:none}
+@media(min-width:1180px){
+ body.fb-home #main{display:grid;grid-template-columns:minmax(0,38rem) 19rem;gap:1.2rem;justify-content:center;align-items:start}
+ body.fb-home #main>.fbw{margin:0;max-width:none;width:100%}
+ .hsb{display:block;position:sticky;top:5rem;max-height:calc(100dvh - 6rem);overflow:auto;scrollbar-width:thin}}
+.hsb section{background:var(--card);border:1px solid var(--b);border-radius:.8rem;padding:.9rem;margin-bottom:.8rem}
+.hsb h4{display:flex;justify-content:space-between;align-items:baseline;font-size:.95rem;color:var(--m);font-weight:600;margin-bottom:.6rem}
+.hsb h4 a{font-size:.8rem;color:var(--rosa);font-weight:600}
+.hsb-n{font-size:.9rem;color:var(--m);margin-bottom:.7rem}.hsb-n b{color:var(--t);font-size:1.05rem}
+.hsb-b{display:flex;gap:.5rem;flex-wrap:wrap}.hsb-b .btn{flex:1;white-space:nowrap}.hsb-b .ic{width:1.1rem;height:1.1rem}
+.hsb-ct{display:flex;align-items:center;gap:.6rem;padding:.35rem .3rem;border-radius:.6rem;font-weight:600;font-size:.92rem}
+.hsb-ct:hover{background:var(--hov)}.hsb-ct span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hsb-ct .av{width:2.2rem;height:2.2rem;font-size:.9rem}
+.hsb-dot{flex:none;width:.6rem;height:.6rem;border-radius:50%;background:var(--okc)}
+.hsb .m{font-size:.88rem;margin-bottom:.6rem}
