@@ -1,0 +1,23 @@
+// Página: Verificación de Discord (/verificar). El botón de verificar del Discord trae aquí: 1) iniciar sesión con la
+// cuenta del servidor, 2) vincular Discord (OAuth, /auth/discord?next=verificar), 3) el bot pone el rol y el apodo.
+window.LOGIN_NEXT="/verificar";window.PTITLE="Verificación de Discord";
+window.discordMsg=(q)=>{const p=q.get("discord");if(!p)return"";if(p==="ok")return t("¡Cuenta vinculada! En menos de un minuto el bot te da acceso en el Discord.");if(p==="pendiente")return t("Comprobando con Discord…");if(p==="duplicado")return q.get("tipo")==="discord"?t("Tu Discord ya está vinculado a la cuenta")+" "+(q.get("cuenta")||"")+". "+t("Inicia sesión con esa cuenta o desvincúlala desde su perfil."):t("Esta cuenta del juego ya tiene otro Discord vinculado. Desvincúlalo en tu perfil y vuelve a intentarlo.");return({cancelado:t("Cancelaste la autorización en Discord. Vuelve a pulsar Vincular con Discord."),sesion:t("Se cerró tu sesión en la web. Inicia sesión otra vez y vuelve a pulsar Vincular con Discord."),estado:t("El enlace caducó. Vuelve a pulsar Vincular con Discord."),token:t("Discord rechazó la conexión. Avisa al staff (configuración de la web)."),usuario:t("Discord no devolvió tu usuario. Inténtalo de nuevo."),limite:t("Discord está limitando las conexiones, inténtalo en unos minutos."),espera:t("La comprobación con Discord está tardando. Recarga esta página en un minuto."),caducado:t("El enlace de Discord caducó. Vuelve a pulsar Vincular con Discord.")}[q.get("motivo")]||t("No se pudo vincular, inténtalo de nuevo."))};
+// El bot canjea el código de Discord (discord_oauth_queue): se pregunta el resultado cada 2 s, como mucho 60 s
+function discordEspera(req){let n=0;const go=(qs,back)=>{window.__dEspera=2;location.replace(`/${back==="perfil"?"perfil":"verificar"}?${qs}`)};const tick=async()=>{n++;let r=null;try{const x=await fetch("/api/discord/estado?req="+req,{cache:"no-store",credentials:"same-origin"});if(x.ok)r=await x.json()}catch{}const b=r&&r.back;if(r&&r.estado==="hecho")return go("discord=ok",b);if(r&&r.estado==="duplicado_discord")return go("discord=duplicado&tipo=discord&cuenta="+encodeURIComponent(r.cuenta||""),b);if(r&&r.estado==="duplicado_cuenta")return go("discord=duplicado&tipo=cuenta",b);if(r&&r.estado==="error")return go("discord=error&motivo="+encodeURIComponent(r.motivo||""),b);if(n>=30)return go("discord=error&motivo=espera","verificar");setTimeout(tick,2000)};setTimeout(tick,2000)}
+function pg_verificar(){
+ const sp=new URLSearchParams(location.search),req=sp.get("req");
+ if(sp.get("discord")==="pendiente"&&/^[0-9a-f]{32}$/.test(req||"")&&!window.__dEspera){window.__dEspera=1;discordEspera(req)}
+ const p=window.__dEspera===1?"pendiente":sp.get("discord");
+ const aviso=p?`<p class="msg${p==="ok"?" ok":""}" role="status">${esc(discordMsg(p==="pendiente"?new URLSearchParams("discord=pendiente"):sp))}</p>`:"";
+ if(sp.get("discord"))history.replaceState(null,"","/verificar");
+ const paso=(n,on,done,tit,txt,btn)=>`<li class="vp${on?" on":""}${done?" done":""}"><span class="vn">${done?"✓":n}</span><div><b>${t(tit)}</b><p class="m">${t(txt)}</p>${on&&btn?btn:""}</div></li>`;
+ const logged=!!U,linked=!!U?.discord;
+ const pasos=`<ol class="vpasos">
+  ${paso(1,!logged,logged,"Inicia sesión con tu cuenta del servidor","El mismo nombre (Nombre_Apellido) y contraseña que usas en el juego. ¿No tienes cuenta? Créala aquí con Crear cuenta.",`<button class="btn p" onclick="login()">${t("Iniciar sesión")}</button> <button class="btn" onclick="registro()">${t("Crear cuenta")}</button>`)}
+  ${paso(2,logged&&!linked,linked,"Vincula tu Discord","Discord te pedirá permiso solo para leer tu nombre de usuario e ID. No vemos tus mensajes ni tu correo.",`<a class="btn p" href="/auth/discord?next=verificar">${ic("discord_comentarios")} ${t("Vincular con Discord")}</a>`)}
+  ${paso(3,linked,false,"¡Listo! Vuelve al Discord","En menos de un minuto el bot te da acceso a todos los canales y cambia tu apodo por el de tu personaje.",`<a class="btn p" href="${DISCORD}" target="_blank" rel="noopener">${ic("discord_comentarios")} ${t("Abrir el Discord")}</a>`)}
+ </ol>`;
+ const cuenta=linked?`<p class="m" style="margin-top:.6rem">${t("Cuenta")}: <b>${esc(U.name)}</b> · Discord ID ${esc(U.discord.discord_id)}</p>`:"";
+ return `<div class="card"><h3>${ic("cuenta_vinculada")} ${t("Verificación de Discord")}</h3><p class="m">${t("Para ver los canales del Discord de SampCity tienes que vincular tu cuenta del servidor. Así sabemos quién es quién y tu nombre en Discord es el de tu personaje.")}</p>${aviso}${pasos}${cuenta}</div>`;
+}
+mountPage(pg_verificar);
