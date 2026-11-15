@@ -37,6 +37,7 @@ const nCard=(p)=>{(window.PS=window.PS||{})[p.id]=p;const a=esc(p.author.replace
 function leer(id){modal(postHtml(PS[id])+`<button class="btn" onclick="cerrar()">${t("Cerrar")}</button>`,1)}
 const skin=(id,n,c="")=>{const u=INFO.skinUrl&&id!=null&&id!==""?esc(INFO.skinUrl.replace("{id}",encodeURIComponent(id))):"";return `<div class="av sk ${c}">${esc((n||"?")[0])}${u?`<img src="${u}" alt="" loading="lazy" onerror="this.remove()">`:""}</div>`};
 const ago=s=>{const d=(Date.now()-new Date(String(s).replace(" ","T")))/6e4;if(!(d>=0))return"—";const u=d<60?[d,"minuto","minute"]:d<1440?[d/60,"hora","hour"]:d<43200?[d/1440,"día","day"]:[d/43200,"mes","month"],n=Math.max(1,Math.floor(u[0]));return L==="en"?`${n} ${u[2]}${n>1?"s":""} ago`:`hace ${n} ${u[1]}${n>1?(u[1]==="mes"?"es":"s"):""}`};
+function cd(){$("#dr").classList.remove("on")}addEventListener("keydown",e=>{if(e.key==="Escape")cd()});
 // ---- Scroll infinito: al llegar al final se cargan más publicaciones (sin botones «Anterior / Siguiente») ----
 let INF=null,INFOB=null;
 const INFSP='<span class="infsp" aria-hidden="true"></span>';
