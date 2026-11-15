@@ -2,152 +2,67 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Tienda · SampCity</title>
+  <meta name="theme-color" content="#0e0a0c">
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0b0f14;
-      --card: #141a22;
-      --border: #232c37;
-      --text: #e8edf3;
-      --muted: #94a3b8;
-      --accent: #22c55e;
-      --danger: #ef4444;
+      --rosa: #F59D99; --rojo: #E8392F; --gr: #9E150F;
+      --bg: #0e0a0c; --card: #181115; --in: #120c0f; --border: #33252b;
+      --text: #f6f1f2; --muted: #b3a3a8; --err: #ff8b84; --ok: #6ee7a1;
     }
-
     * { box-sizing: border-box; }
-
+    html { color-scheme: dark; -webkit-text-size-adjust: 100%; }
     body {
-      margin: 0;
-      min-height: 100vh;
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
+      margin: 0; min-height: 100dvh; color: var(--text); line-height: 1.55;
+      font-family: Poppins, system-ui, sans-serif;
+      background: radial-gradient(60rem 28rem at 85% -8%, rgba(232,57,47,.18), transparent), var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1rem; padding: calc(1.25rem + env(safe-area-inset-top)) 1rem calc(1.25rem + env(safe-area-inset-bottom));
     }
-
+    :focus-visible { outline: 3px solid var(--rosa); outline-offset: 3px; border-radius: 8px; }
+    .logo { height: 2.6rem; width: auto; }
     .store {
-      width: 100%;
-      max-width: 520px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 28px;
+      width: 100%; max-width: 520px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.25rem; padding: 1.5rem; box-shadow: 0 18px 50px rgba(0,0,0,.35);
     }
-
-    h1 {
-      margin: 0 0 6px;
-      font-size: 26px;
-    }
-
-    p.subtitle {
-      margin: 0 0 24px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .product {
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 18px;
-      background: #10161d;
-    }
-
-    .product h2 {
-      margin: 0 0 6px;
-      font-size: 20px;
-    }
-
-    .product .amount {
-      color: var(--accent);
-      font-weight: 700;
-    }
-
-    .product .price {
-      color: var(--muted);
-      font-size: 14px;
-      margin-bottom: 14px;
-    }
-
+    h1 { margin: 0 0 .25rem; font-size: 1.6rem; }
+    p.subtitle { margin: 0 0 1.5rem; color: var(--muted); font-size: .9rem; }
+    .product { border: 1px solid var(--border); border-radius: 1rem; padding: 1.1rem; margin-bottom: 1.1rem; background: var(--in); }
+    .product h2 { margin: 0 0 .25rem; font-size: 1.25rem; }
+    .product .amount { margin: 0 0 .25rem; color: var(--rosa); font-weight: 700; }
+    .product .price { margin: 0 0 1rem; color: var(--muted); font-size: .9rem; }
     button {
-      width: 100%;
-      border: 0;
-      border-radius: 10px;
-      padding: 13px 16px;
-      background: var(--accent);
-      color: #04140a;
-      font-weight: 700;
-      font-size: 15px;
-      cursor: pointer;
+      width: 100%; min-height: 2.9rem; border: 1px solid var(--rojo); border-radius: 999px; padding: .7rem 1rem;
+      background: linear-gradient(180deg, var(--rojo), var(--gr)); color: #fff;
+      font: 600 .95rem Poppins, system-ui, sans-serif; cursor: pointer; transition: transform .15s ease, filter .15s ease;
     }
-
-    button:disabled {
-      opacity: .55;
-      cursor: not-allowed;
-    }
-
-    .message {
-      display: none;
-      margin-top: 14px;
-      padding: 12px;
-      border-radius: 10px;
-      font-size: 14px;
-    }
-
-    .message.error {
-      display: block;
-      background: rgba(239, 68, 68, .12);
-      border: 1px solid rgba(239, 68, 68, .35);
-      color: #fecaca;
-    }
-
-    .message.info {
-      display: block;
-      background: rgba(34, 197, 94, .12);
-      border: 1px solid rgba(34, 197, 94, .35);
-      color: #bbf7d0;
-    }
-
-    .orders {
-      margin-top: 26px;
-      border-top: 1px solid var(--border);
-      padding-top: 18px;
-    }
-
-    .orders h3 {
-      margin: 0 0 12px;
-      font-size: 16px;
-    }
-
-    .order {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 14px;
-    }
-
-    .status {
-      font-weight: 700;
-    }
-
+    button:hover:not(:disabled) { filter: brightness(1.1); }
+    button:active:not(:disabled) { transform: scale(.98); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .message { display: none; margin-top: .9rem; padding: .75rem; border-radius: .75rem; font-size: .88rem; }
+    .message.error { display: block; background: rgba(255,139,132,.1); border: 1px solid rgba(255,139,132,.35); color: var(--err); }
+    .message.info { display: block; background: rgba(110,231,161,.1); border: 1px solid rgba(110,231,161,.35); color: var(--ok); }
+    .orders { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.1rem; }
+    .orders h3 { margin: 0 0 .75rem; font-size: 1rem; }
+    .order { display: flex; justify-content: space-between; gap: .75rem; padding: .6rem 0; border-bottom: 1px solid var(--border); font-size: .88rem; }
+    .status { font-weight: 700; }
     .status.pending { color: #fbbf24; }
     .status.paid { color: #60a5fa; }
-    .status.delivered { color: var(--accent); }
-    .status.failed { color: var(--danger); }
-
-    .empty {
-      color: var(--muted);
-      font-size: 14px;
-    }
+    .status.delivered { color: var(--ok); }
+    .status.failed { color: var(--err); }
+    .empty { color: var(--muted); font-size: .88rem; }
+    .back { color: var(--rosa); font-size: .9rem; font-weight: 600; text-decoration: none; }
+    .back:hover { text-decoration: underline; }
+    @media (prefers-reduced-motion: reduce) { button { transition: none; } }
   </style>
 </head>
 <body>
+  <a href="/"><img class="logo" src="/assets/logo.png" alt="SampCity" width="160" height="42"></a>
   <main class="store">
     <h1>Tienda SampCity</h1>
     <p class="subtitle">Compra coins para tu cuenta. El pago se procesa de forma segura con Tebex.</p>
@@ -168,8 +83,10 @@
       <div id="orders" class="empty">Cargando historial…</div>
     </section>
   </main>
+  <a class="back" href="/">← Volver a la web</a>
 
   <script>
+    const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     const message = document.getElementById("message");
     const buyButton = document.getElementById("buy");
     const priceElement = document.getElementById("price");
@@ -244,9 +161,9 @@
         ordersElement.className = "";
         ordersElement.innerHTML = orders.map((order) => `
           <div class="order">
-            <span>${order.product} · ${order.amount} coins</span>
-            <span class="status ${order.delivery_status || order.status}">
-              ${statusText[order.delivery_status] || statusText[order.status] || order.status}
+            <span>${esc(order.product)} · ${esc(order.amount)} coins</span>
+            <span class="status ${esc(order.delivery_status || order.status)}">
+              ${esc(statusText[order.delivery_status] || statusText[order.status] || order.status)}
             </span>
           </div>
         `).join("");

@@ -2,6 +2,7 @@ require("dotenv").config();
 const crypto = require("crypto");
 const path = require("path");
 const express = require("express");
+const compression = require("compression");
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcryptjs");
 const store = require("./store");
@@ -39,8 +40,8 @@ function sessionId(req) {
 const clearSession = (res) => res.append("Set-Cookie", `sc=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${HTTPS ? "; Secure" : ""}`);
 
 // ---- Contraseñas: igual que snrp.pwn (bcrypt $2a/$2b/$2y, o SHA256(clave + sal) en mayúsculas) ----
-function checkPassword(input, salt, stored) {
-  if (/^\$2[aby]\$/.test(stored)) return bcrypt.compareSync(input, stored);
+async function checkPassword(input, salt, stored) {
+  if (/^\$2[aby]\$/.test(stored)) return bcrypt.compare(input, stored); // async: no bloquea el servidor mientras calcula
   const h = crypto.createHash("sha256").update(input + (salt || "")).digest("hex").toUpperCase();
   return h.length === stored.length && crypto.timingSafeEqual(Buffer.from(h), Buffer.from(stored.toUpperCase()));
 }
@@ -70,6 +71,7 @@ const app = express();
 // Express 4 no captura errores de funciones async: así un fallo de la base de datos no tumba el servidor
 ["get", "post", "put", "delete"].forEach((m) => { const o = app[m].bind(app); app[m] = (p, ...h) => (h.length ? o(p, ...h.map((f) => (typeof f === "function" && f.length < 4 ? (a, b, c) => Promise.resolve(f(a, b, c)).catch(c) : f))) : o(p)); });
 app.set("trust proxy", 1);
+app.use(compression()); // gzip/deflate para HTML, CSS, JS y JSON (el video y las imágenes ya vienen comprimidos y se saltan)
 app.disable("x-powered-by");
 // 18-19. HTTPS forzado + cabeceras de seguridad
 const CSP = ["default-src 'self'", "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", "font-src https://fonts.gstatic.com", "img-src 'self' data: blob: https:", "media-src 'self' blob:", "connect-src 'self'", "frame-src https://challenges.cloudflare.com", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'"].join("; ");
@@ -192,7 +194,7 @@ app.post("/api/login", async (req, res) => {
   if (!hit("l|" + req.ip, 20, 60000) || (await limited(key, 6)) || (await limited(ipKey, 30))) return res.status(429).json({ error: "Demasiados intentos. Espera 15 minutos." });
   if (!(await captchaOk(req))) return res.status(400).json({ error: "Completa la verificación anti-robots", captcha: true });
   const r = (await q("SELECT id, salt, pass FROM player WHERE name = ?", [name]))[0];
-  const good = r && r.pass ? checkPassword(pass, r.salt, r.pass) : (bcrypt.compareSync(pass, DUMMY_HASH), false);
+  const good = r && r.pass ? await checkPassword(pass, r.salt, r.pass) : (await bcrypt.compare(pass, DUMMY_HASH), false);
   if (!good) {
     await q("INSERT INTO web_tries (k, t) VALUES (?, ?), (?, ?)", [key, Date.now(), ipKey, Date.now()]);
     return res.status(401).json({ error: "Nombre o contraseña incorrectos" });
