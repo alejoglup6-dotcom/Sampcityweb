@@ -1,4 +1,8 @@
 /* SampCity - estilos compartidos por todas las páginas */
+@font-face{font-family:Poppins;font-style:normal;font-weight:400;font-display:swap;src:url(/assets/fonts/poppins-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:Poppins;font-style:normal;font-weight:600;font-display:swap;src:url(/assets/fonts/poppins-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:Poppins;font-style:normal;font-weight:700;font-display:swap;src:url(/assets/fonts/poppins-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Russo One";font-style:normal;font-weight:400;font-display:swap;src:url(/assets/fonts/russo-one-latin-400-normal.woff2) format("woff2")}
 :root{--rosa:#F59D99;--rojo:#E8392F;--gr:#9E150F;--bg:#0e0a0c;--card:#181115;--in:#0e0a0c;--b:#33252b;--t:#f6f1f2;--m:#b3a3a8;--nav:4rem}
 *{box-sizing:border-box;margin:0}
 html{color-scheme:dark;-webkit-text-size-adjust:100%;scroll-padding-top:5rem;font-size:16px}

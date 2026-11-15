@@ -74,7 +74,7 @@ app.set("trust proxy", 1);
 app.use(compression()); // gzip/deflate para HTML, CSS, JS y JSON (el video y las imágenes ya vienen comprimidos y se saltan)
 app.disable("x-powered-by");
 // 18-19. HTTPS forzado + cabeceras de seguridad
-const CSP = ["default-src 'self'", "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", "font-src https://fonts.gstatic.com", "img-src 'self' data: blob: https:", "media-src 'self' blob:", "connect-src 'self'", "frame-src https://challenges.cloudflare.com", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'"].join("; ");
+const CSP = ["default-src 'self'", "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com", "style-src 'self' 'unsafe-inline'", "font-src 'self'", "img-src 'self' data: blob: https:", "media-src 'self' blob:", "connect-src 'self'", "frame-src https://challenges.cloudflare.com", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'"].join("; ");
 app.use((req, res, next) => {
   if (HTTPS && req.headers["x-forwarded-proto"] === "http") return res.redirect(301, BASE + req.originalUrl);
   res.set({ "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "same-origin", "Content-Security-Policy": CSP, "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()", "Cross-Origin-Opener-Policy": "same-origin" });
@@ -255,7 +255,7 @@ app.get("/p/:id(\\d+)", async (req, res) => { // enlace propio de cada publicaci
 });
 app.get("/robots.txt", (req, res) => res.type("text/plain").send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /auth/\nDisallow: /notificaciones\nDisallow: /amigos\n\nSitemap: ${BASE}/sitemap.xml\n`));
 app.get("/sitemap.xml", (req, res) => res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Object.keys(ROUTES).filter((u) => u !== "/perfil" && u !== "/notificaciones" && u !== "/amigos" && u !== "/verificar").map((u) => `  <url><loc>${BASE}${u}</loc><changefreq>${u === "/" || u === "/noticias" ? "daily" : "weekly"}</changefreq><priority>${u === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}\n</urlset>\n`));
-app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", setHeaders: (res, f) => { if (/[\\/]assets[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=86400"); } }));
+app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", setHeaders: (res, f) => { if (/[\\/]assets[\\/]fonts[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=31536000, immutable"); else if (/[\\/]assets[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=86400"); } }));
 require("./routes/vacantes")(app, { E, str, pid, MIN_POST, SKIN_COL, ADMIN_LEVELS, q, hit, me, BCAST, notify });
 
 // ---- Tienda SampCity ----
