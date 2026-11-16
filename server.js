@@ -429,7 +429,7 @@ const addColEarly = async () => { for (const [c, d] of [["totp", "VARCHAR(40) NO
     ON DUPLICATE KEY UPDATE name = VALUES(name), kind = VALUES(kind), amount = VALUES(amount)`);
 
   // Chat: responder, reacciones, audios y chats de grupo (room = id del chat de grupo; en ese caso b = 0)
-  await addCol("web_msgs", "room", "INT NULL"); await addCol("web_msgs", "reply_to", "INT NULL");
+  await addCol("web_msgs", "dur", "SMALLINT NULL"); await addCol("web_msgs", "room", "INT NULL"); await addCol("web_msgs", "reply_to", "INT NULL");
   await q("CREATE TABLE IF NOT EXISTS web_msg_rx (msg_id INT NOT NULL, player_id INT NOT NULL, kind TINYINT NOT NULL DEFAULT 1, PRIMARY KEY (msg_id, player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_rooms (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(40) NOT NULL, owner INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_room_members (room_id INT NOT NULL, player_id INT NOT NULL, last_read INT NOT NULL DEFAULT 0, joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (room_id, player_id), KEY p (player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");

@@ -61,7 +61,7 @@ const NAMES = new Map(); // id → nombre (para los avisos en vivo)
 const nameOf = async (id) => { let n = NAMES.get(Number(id)); if (!n) { n = ((await q("SELECT name FROM player WHERE id = ?", [id]))[0] || {}).name || ""; if (NAMES.size > 5000) NAMES.clear(); if (n) NAMES.set(Number(id), n); } return n; };
 const unreadMsgs = async (id) => Number((await q("SELECT COUNT(*) AS n FROM web_msgs WHERE b = ? AND seen = 0", [id]))[0].n)
   + Number((await q("SELECT COUNT(*) AS n FROM web_room_members rm JOIN web_msgs m ON m.room = rm.room_id AND m.id > rm.last_read AND m.a <> rm.player_id WHERE rm.player_id = ?", [id]))[0].n);
-const MSEL = "SELECT m.id, m.a, m.body, m.img, m.seen, m.created_at, m.reply_to FROM web_msgs m";
+const MSEL = "SELECT m.id, m.a, m.body, m.img, m.seen, m.created_at, m.reply_to, m.dur FROM web_msgs m";
 // Foto o audio adjunto: llega como data: URL (la foto ya reducida en el navegador; el audio grabado con el micrófono)
 function attachment(data) {
   const m = /^data:(image\/(?:jpeg|png|webp)|audio\/(?:webm|mp4|ogg))(?:;[\w=.\- ]+)*;base64,([A-Za-z0-9+/=]+)$/.exec(str(data));
@@ -83,7 +83,7 @@ async function outMsgs(rows, uid, withFrom = false) {
   const mime = new Map(im.map((x) => [Number(x.id), x.mime])), pm = new Map(ps.map((x) => [Number(x.id), x]));
   return rows.map((m) => {
     const r = rp.find((x) => Number(x.id) === Number(m.reply_to)), au = String(mime.get(Number(m.img)) || "").startsWith("audio/"), f = pm.get(Number(m.a));
-    const o = { id: m.id, mine: Number(m.a) === Number(uid), body: m.body, img: m.img && !au ? `/img/${m.img}` : "", aud: m.img && au ? `/img/${m.img}` : "", at: m.created_at, rx: {}, myrx: 0 };
+    const o = { id: m.id, mine: Number(m.a) === Number(uid), body: m.body, img: m.img && !au ? `/img/${m.img}` : "", aud: m.img && au ? `/img/${m.img}` : "", dur: m.img && au ? Number(m.dur) || 0 : 0, at: m.created_at, rx: {}, myrx: 0 };
     for (const x of rx) if (Number(x.msg_id) === Number(m.id)) { o.rx[x.kind] = Number(x.n); if (Number(x.mine)) o.myrx = Number(x.kind); }
     if (m.reply_to) o.reply = r ? { id: r.id, from: r.name || "", body: String(r.body || (r.img ? "📎" : "")).slice(0, 90) } : { id: 0, from: "", body: "Mensaje eliminado" };
     if (withFrom) { o.from = f ? f.name : ""; o.skin = f ? f.skin : null; }
@@ -157,7 +157,8 @@ async function saveMsg(u, { peer = 0, room = null }, body, res) {
   let reply = pid(body.reply); // solo se puede responder a un mensaje de esta misma conversación
   if (reply && !(await q(room ? "SELECT 1 FROM web_msgs WHERE id = ? AND room = ?" : "SELECT 1 FROM web_msgs WHERE id = ? AND room IS NULL AND ((a = ? AND b = ?) OR (a = ? AND b = ?))", room ? [reply, room] : [reply, u.id, peer, peer, u.id])).length) reply = 0;
   const iid = att ? await imgs.put(att.mime, att.buf) : null;
-  const r = await q("INSERT INTO web_msgs (a, b, body, img, room, reply_to, seen) VALUES (?, ?, ?, ?, ?, ?, ?)", [u.id, peer, text, iid, room, reply || null, room ? 1 : 0]);
+  const dur = att && att.mime.startsWith("audio/") ? Math.min(60, Math.max(1, Math.round(Number(body.dur)) || 0)) || null : null; // segundos del audio (el navegador no puede leerlos de un webm grabado en vivo)
+  const r = await q("INSERT INTO web_msgs (a, b, body, img, room, reply_to, seen, dur) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [u.id, peer, text, iid, room, reply || null, room ? 1 : 0, dur]);
   const m = (await outMsgs(await q(MSEL + " WHERE m.id = ?", [r.insertId]), u.id, !!room))[0];
   return { id: r.insertId, text: preview(text, att), m };
 }

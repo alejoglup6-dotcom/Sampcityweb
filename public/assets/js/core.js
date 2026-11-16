@@ -377,7 +377,8 @@ async function seguir(name,b){const r=await api("/follow/"+encodeURIComponent(na
   m=/^return ([\s\S]+)$/.exec(st);if(m){const r=call(m[1].trim(),el,ev);if(r===false||r instanceof Promise)ev.preventDefault();continue}
   call(st,el,ev)}};
  const EVS={click:"click",change:"change",input:"input",submit:"submit",keydown:"keydown",keyup:"keyup",contextmenu:"contextmenu",focus:"focusin",blur:"focusout"};
- for(const[n,e]of Object.entries(EVS)){const a="data-on-"+n;document.addEventListener(e,ev=>{for(let el=ev.target;el&&el.getAttribute;el=el.parentNode){const c=el.getAttribute(a);if(c!==null){run(c,el,ev);if(ev.cancelBubble)break}}})}
+ for(const[n,e]of Object.entries(EVS)){const a="data-on-"+n;document.addEventListener(e,ev=>{const ch=[];for(let el=ev.target;el&&el.getAttribute;el=el.parentNode)ch.push(el); // la cadena se toma antes de ejecutar: un manejador puede reemplazar el contenido del botón pulsado
+  for(const el of ch){const c=el.getAttribute(a);if(c!==null){run(c,el,ev);if(ev.cancelBubble)break}}})}
  for(const n of["error","load"])document.addEventListener(n,ev=>{const el=ev.target,c=el&&el.getAttribute&&el.getAttribute("data-on-"+n);if(c)run(c,el,ev)},true); // no se propagan: se captura en el documento
 })();
 
