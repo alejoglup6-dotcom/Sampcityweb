@@ -3,7 +3,10 @@ module.exports = (app, { crypto, store, E, BASE, q, sessionId, me, notify }) => 
 // ---- Vincular Discord (OAuth2: solo se lee el id del usuario) ----
 // El "state" se guarda aquí (por cuenta, 10 min) y no en una cookie: algunos navegadores no la devolvían al volver de
 // Discord y el enlace fallaba sin decir nada. Siempre se vuelve a la página de donde se vino (lo dice el propio state).
-const DSTATE = new Map(); // state -> { playerId, next, until }
+// Firmado (HMAC) y sin memoria: en cPanel el proceso de Node se reinicia o hay varios y un Map se perdía ("El enlace caducó").
+const sign = (v) => crypto.createHmac("sha256", E.SESSION_SECRET || "").update(v).digest("hex").slice(0, 32);
+const mkState = (playerId, next) => { const b = `${playerId}.${Date.now() + 600000}.${next}`; return `${b}.${sign(b)}`; };
+const readState = (st) => { const m = /^(\d+)\.(\d+)\.(verificar|perfil)\.([0-9a-f]{32})$/.exec(st); if (!m) return null; const b = `${m[1]}.${m[2]}.${m[3]}`; if (!crypto.timingSafeEqual(Buffer.from(sign(b)), Buffer.from(m[4])) || Number(m[2]) < Date.now()) return null; return { playerId: Number(m[1]), next: m[3] }; };
 // El código lo canjea el bot desde QoreHost (tabla discord_oauth_queue): Cloudflare bloquea a veces la IP de salida de
 // Render (429 del 22-oct-2026). La página /verificar espera el resultado con /api/discord/estado.
 // DISCORD_OAUTH_MODO=web vuelve a canjearlo aquí.
@@ -12,16 +15,13 @@ app.get("/auth/discord", async (req, res) => {
   const u = await me(req);
   const next = req.query.next === "verificar" ? "verificar" : "perfil"; // a dónde se vuelve después
   if (!u) return res.redirect(next === "verificar" ? "/verificar" : "/?login=1");
-  const now = Date.now();
-  for (const [k, v] of DSTATE) if (v.until < now) DSTATE.delete(k);
-  const state = crypto.randomBytes(16).toString("hex") + "." + next;
-  DSTATE.set(state, { playerId: Number(u.id), next, until: now + 600000 });
+  const state = mkState(Number(u.id), next);
   const p = new URLSearchParams({ client_id: E.DISCORD_CLIENT_ID, redirect_uri: `${BASE}/auth/discord/callback`, response_type: "code", scope: "identify", state });
   res.redirect(`https://discord.com/oauth2/authorize?${p}`);
 });
 app.get("/auth/discord/callback", async (req, res) => {
   const qs = typeof req.query.state === "string" ? req.query.state : "";
-  const back = qs.endsWith(".verificar") ? "/verificar" : "/perfil";
+  const back = /^\d+\.\d+\.verificar\./.test(qs) ? "/verificar" : "/perfil";
   const fail = (motivo, info = "") => {
     console.log("[discord]", motivo, info);
     return res.redirect(`${back}?discord=error&motivo=${motivo}`);
@@ -36,9 +36,8 @@ app.get("/auth/discord/callback", async (req, res) => {
   };
   try {
     if (req.query.error) return fail("cancelado", String(req.query.error)); // pulsó Cancelar en Discord
-    const saved = DSTATE.get(qs);
-    DSTATE.delete(qs); // el estado se usa una sola vez
-    if (!saved || saved.until < Date.now() || typeof req.query.code !== "string" || !req.query.code) return fail("estado");
+    const saved = readState(qs);
+    if (!saved || typeof req.query.code !== "string" || !req.query.code) return fail("estado");
     const u = (await q("SELECT id, name, admin_level FROM player WHERE id = ?", [saved.playerId]))[0];
     if (!u) return fail("sesion");
     if (OAUTH_VIA_BOT) {
