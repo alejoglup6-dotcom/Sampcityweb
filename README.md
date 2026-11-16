@@ -59,7 +59,7 @@ Cada sección es una página independiente (archivo + URL propia), ya no van tod
 | `/comunidad` | `public/comunidad.html` | `public/assets/js/pages/comunidad.js` |
 | `/perfil` | `public/perfil.html` | `public/assets/js/pages/perfil.js` |
 
-- Lo compartido está en `public/assets/css/style.css`, `public/assets/js/core.js` (API, login, tema/idioma, menú) y `public/assets/js/sprite.js` (íconos).
+- Lo compartido está en `public/assets/css/style.css`, `public/assets/js/core.js` (API, login, tema/idioma, menú) y `public/assets/js/sprite.js` (íconos). El perfil (`perfilFB` y sus ventanas) vive en `public/assets/js/perfil-ui.js`, que solo cargan `/perfil` y `/u/Nombre`.
 - Para editar una página toca solo su `.html` y su `.js`. Si cambias CSS/JS, sube el `?v=1` de los `<link>`/`<script>` para evitar caché.
 - Para crear una página nueva: copia un `.html`, cambia `data-v`, título y script; agrégala a `NAV` y `R` en `core.js` y a `ROUTES` en `server.js`.
 - Los enlaces viejos tipo `/#fotos` redirigen solos a `/fotos`. Discord vuelve a `/perfil?discord=...`.
