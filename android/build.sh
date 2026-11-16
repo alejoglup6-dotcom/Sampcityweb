@@ -14,7 +14,7 @@ BT="$(ls -d "${ANDROID_HOME:-$HOME/android-sdk}"/build-tools/* | sort -V | tail 
 "$BT/apksigner" verify --print-certs "$APK" | sed -n 1,3p
 mkdir -p ../public/downloads
 cp "$APK" ../public/downloads/SampCity-App.apk
-VN=$(grep -m1 versionName app/build.gradle | sed -E "s/.*'([^']+)'.*/\1/"); VC=$(grep -m1 versionCode app/build.gradle | sed -E 's/[^0-9]*([0-9]+).*/\1/')
+VN=$(grep -m1 -E '^\s+versionName' app/build.gradle | sed -E "s/.*'([^']+)'.*/\1/"); VC=$(grep -m1 -E '^\s+versionCode' app/build.gradle | sed -E 's/[^0-9]*([0-9]+).*/\1/')
 SHA=$(sha256sum ../public/downloads/SampCity-App.apk | cut -d' ' -f1)
 printf '{\n  "versionName": "%s",\n  "versionCode": %s,\n  "sha256": "%s",\n  "host": "%s"\n}\n' "$VN" "$VC" "$SHA" "$HOST" > ../data/app.json
 echo "Listo: public/downloads/SampCity-App.apk ($(du -h ../public/downloads/SampCity-App.apk | cut -f1)) · versión $VN ($VC)"
