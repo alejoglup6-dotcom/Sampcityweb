@@ -1,2 +1,17 @@
-// provisional
-mountPage(()=>"");
+// Página: Buscar (/buscar) · personas, publicaciones (también #etiquetas) y anuncios
+Object.assign(EN,{"Buscar en SampCity":"Search SampCity","Personas":"People","Publicaciones":"Posts","Anuncios":"Listings","Escribe al menos 2 letras.":"Type at least 2 letters.","No encontramos nada con esa búsqueda.":"Nothing matches that search.","Búsquedas recientes":"Recent searches","Borrar":"Clear","Ver todo":"See all","Nivel":"Level"});
+const BQ={q:new URLSearchParams(location.search).get("q")||"",t:new URLSearchParams(location.search).get("t")||""};
+const bqRec=()=>{try{return JSON.parse(localStorage.getItem("bq")||"[]")}catch{return[]}};
+const bqP=p=>`<a class="chr" href="/u/${encodeURIComponent(p.name)}">${skin(p.skin,p.name)}${Number(p.connected)?'<i class="chon"></i>':""}<span><b>${esc(p.name.replace(/_/g," "))}</b><small>${t("Nivel")} ${Number(p.level)||0}</small></span></a>`;
+const bqM=p=>`<a class="chr" href="/marketplace?q=${encodeURIComponent(p.title)}">${p.img?`<img class="av" src="${esc(p.img)}" alt="" loading="lazy">`:`<span class="av">${ic("marketplace")}</span>`}<span><b>${esc(p.title)}</b><small>${p.price>0?money(p.price):""} · ${esc(p.seller.replace(/_/g," "))}</small></span></a>`;
+async function pg_buscar(){const q=BQ.q.trim(),tabs=[["","Todo"],["people","Personas"],["posts","Publicaciones"],["market","Anuncios"]];
+ const top=`<div class="fbw2"><div class="fbhd"><h2>${t("Buscar")}</h2></div><form class="mkf" onsubmit="return bqGo()"><input id="bqi" type="search" maxlength="40" value="${esc(q)}" placeholder="${t("Buscar en SampCity")}" aria-label="${t("Buscar en SampCity")}" autocomplete="off"><button class="btn p s">${t("Buscar")}</button></form>`;
+ if(q.length<2){const rc=bqRec();setTimeout(()=>{const i=$("#bqi");i&&i.focus()});return top+(rc.length?`<section class="card"><div class="pfh"><h3>${t("Búsquedas recientes")}</h3><button class="lk" type="button" onclick="localStorage.removeItem('bq');show()">${t("Borrar")}</button></div>${rc.map(x=>`<a class="chr" href="/buscar?q=${encodeURIComponent(x)}">${ic("buscar")}<span><b>${esc(x)}</b></span></a>`).join("")}</section>`:`<p class="m" style="text-align:center">${t("Escribe al menos 2 letras.")}</p>`)+`</div>`}
+ const r=await api("/search?q="+encodeURIComponent(q)+"&t="+BQ.t);if(!r.ok)return top+`<p class="msg">${esc(r.d.error)}</p></div>`;
+ try{localStorage.setItem("bq",JSON.stringify([q,...bqRec().filter(x=>x!==q)].slice(0,8)))}catch{}
+ const d=r.d,sec=(k,ti,h)=>h?`<section class="card"><div class="pfh"><h3>${t(ti)}</h3>${BQ.t?"":`<button class="lk" type="button" onclick="bqTab('${k}')">${t("Ver todo")}</button>`}</div>${h}</section>`:"",none=!d.people.length&&!d.posts.length&&!d.market.length;
+ return top+`<div class="mkcat">${tabs.map(x=>`<button type="button" class="${BQ.t===x[0]?"on":""}" onclick="bqTab('${x[0]}')">${t(x[1])}</button>`).join("")}</div>`+(none?`<p class="m" style="text-align:center">${t("No encontramos nada con esa búsqueda.")}</p>`:sec("people","Personas",d.people.map(bqP).join(""))+sec("market","Anuncios",d.market.map(bqM).join(""))+(d.posts.length?`<h3 class="bqh">${t("Publicaciones")}</h3>`+d.posts.map(postHtml).join(""):""))+`</div>`}
+function bqUrl(){try{history.replaceState(null,"","/buscar"+(BQ.q?"?q="+encodeURIComponent(BQ.q)+(BQ.t?"&t="+BQ.t:""):""))}catch{}}
+function bqGo(){BQ.q=$("#bqi").value.trim();BQ.t="";bqUrl();show();return false}
+function bqTab(x){BQ.t=x;bqUrl();show()}
+mountPage(pg_buscar);

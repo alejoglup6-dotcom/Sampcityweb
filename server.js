@@ -120,7 +120,7 @@ const me = async (req) => {
 // notify(destino, actor, tipo, id_publicación, texto): cualquier parte del servidor puede crear una notificación.
 // Para solicitudes de amistad usa los tipos "friend_req" (te enviaron una) y "friend_acc" (aceptaron la tuya).
 const BCAST = Number(E.NOTIF_BROADCAST_MAX) || 3000; // a cuántos jugadores como máximo se avisa de una noticia/actualización nueva
-const ONCE = new Set(["like", "tag", "mention", "friend_req"]); // no se repite si ya existe (mismo actor y publicación)
+const ONCE = new Set(["like", "tag", "mention", "friend_req", "follow", "like_c"]); // no se repite si ya existe (mismo actor y publicación)
 const UNREAD_ONCE = new Set(["reply", "contact", "vac_app"]); // no se repite mientras haya una sin leer igual
 // Solo notificaciones cuya publicación sigue existiendo (y cuyas historias no han caducado)
 const NJ = "FROM web_notifs n LEFT JOIN web_posts p ON p.id = n.post_id LEFT JOIN player a ON a.id = n.actor_id WHERE n.player_id = ? AND (n.post_id IS NULL OR p.id IS NOT NULL) AND (p.type IS NULL OR p.type <> 'story' OR p.created_at > NOW() - INTERVAL 24 HOUR)";
