@@ -44,6 +44,7 @@ class SampApp : Application(), ImageLoaderFactory {
         if (Build.VERSION.SDK_INT < 26) return
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CH_SOCIAL, "Avisos de la red social", NotificationManager.IMPORTANCE_DEFAULT).apply { description = "Me gusta, comentarios, menciones y amistades" })
+        nm.createNotificationChannel(NotificationChannel(CH_SERVICE, "Conexión en vivo", NotificationManager.IMPORTANCE_MIN).apply { description = "Notificación fija que mantiene los avisos al instante. Puedes ocultarla sin perder los avisos." })
         nm.createNotificationChannel(NotificationChannel(CH_CHAT, "Mensajes", NotificationManager.IMPORTANCE_HIGH).apply { description = "Mensajes privados y de grupo" })
     }
 
@@ -55,7 +56,7 @@ class SampApp : Application(), ImageLoaderFactory {
         .crossfade(true).build()
 
     companion object {
-        const val CH_SOCIAL = "social"; const val CH_CHAT = "chat"
+        const val CH_SOCIAL = "social"; const val CH_CHAT = "chat"; const val CH_SERVICE = "service"
         lateinit var instance: SampApp; private set
     }
 }

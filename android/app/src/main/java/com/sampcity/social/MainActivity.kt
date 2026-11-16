@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); route = routeOf(intent) }
 
-    override fun onStart() { super.onStart(); SampApp.instance.live.start() }
+    override fun onStart() { super.onStart(); SampApp.instance.live.start(); com.sampcity.social.live.Notifier.clearAll(this); com.sampcity.social.live.LiveService.sync(this) }
     override fun onStop() { super.onStop(); SampApp.instance.live.stop() }
 
     private fun routeOf(i: Intent?): String? = i?.getStringExtra("route") ?: i?.data?.let { routeFromUrl(it) }

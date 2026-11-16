@@ -118,10 +118,22 @@ fun SettingsScreen() {
                     Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(st.nmask and bit == 0, { save(nmask = if (it) st.nmask and bit.inv() else st.nmask or bit) }); Text(label) }
                 }
                 HorizontalDivider()
+                var instant by remember { mutableStateOf(app.prefs.instantAlerts) }
+                val allowed = com.sampcity.social.live.Notifier.allowed(ctx)
+                if (!allowed) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("⚠ Las notificaciones están bloqueadas para SampCity: no llegará ningún aviso.", color = MaterialTheme.colorScheme.error)
+                    Button({ ctx.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }) { Text("Permitir notificaciones") }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("Avisos con la app cerrada"); Text("Revisa cada ~15 minutos si hay mensajes o avisos nuevos.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Column(Modifier.weight(1f)) { Text("Avisos al instante"); Text("Mantiene una notificación fija para que los mensajes lleguen al momento aunque la app esté cerrada.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Switch(instant, { instant = it; app.prefs.instantAlerts = it; com.sampcity.social.live.LiveService.sync(ctx) })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) { Text("Revisión periódica de respaldo"); Text("Cada ~15 minutos, por si el sistema cierra la conexión.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     Switch(bg, { bg = it; app.prefs.bgAlerts = it; NotifWorker.schedule(ctx, it) })
                 }
+                Text("Si no llegan avisos con la app cerrada, en los ajustes del teléfono quita las restricciones de batería a SampCity (algunas marcas, como Xiaomi, Huawei u Oppo, cierran las apps en segundo plano).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedButton({ ctx.startActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }) { Text("Ajustes de batería") }
             }
             Section("Jugadores bloqueados") {
                 if (st.blocked.isEmpty()) Text("No has bloqueado a nadie.", color = MaterialTheme.colorScheme.onSurfaceVariant)

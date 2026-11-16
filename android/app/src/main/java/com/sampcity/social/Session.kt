@@ -42,7 +42,7 @@ class Session(private val ctx: Context, private val repo: Repo, private val api:
         try {
             val m = repo.me()
             _state.value = if (m != null) AuthState.In(m) else AuthState.LoggedOut
-            if (m != null) refreshCounts()
+            if (m != null) { refreshCounts(); com.sampcity.social.live.LiveService.sync(ctx) }
         } catch (e: ApiError) {
             // sin internet no se cierra la sesión: se muestra «sin conexión» y se puede reintentar
             _state.value = if (e.network) AuthState.Offline else AuthState.LoggedOut
@@ -65,7 +65,7 @@ class Session(private val ctx: Context, private val repo: Repo, private val api:
 
     suspend fun logout() {
         repo.logout(); api.clearSession(); _counts.value = NotifCount(); _state.value = AuthState.LoggedOut
-        NotifWorker.cancelAll(ctx)
+        NotifWorker.cancelAll(ctx); com.sampcity.social.live.LiveService.sync(ctx)
     }
 
     fun expired() {

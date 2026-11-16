@@ -35,12 +35,19 @@ class Live(private val api: Api, private val session: Session) {
     val events: SharedFlow<LiveEvent> = _events.asSharedFlow()
     private var source: EventSource? = null
     private var job: Job? = null
+    /** la app está a la vista */
     @Volatile var foreground = false; private set
+    /** el servicio de avisos la mantiene abierta aunque la app esté cerrada */
+    @Volatile private var keep = false
 
     private val client by lazy { api.client.newBuilder().readTimeout(0, TimeUnit.MILLISECONDS).retryOnConnectionFailure(true).build() }
 
-    fun start() {
-        foreground = true
+    fun start() { foreground = true; ensure() }
+    fun stop() { foreground = false; ensure() }
+    fun keepAlive(on: Boolean) { keep = on; ensure() }
+
+    private fun ensure() {
+        if (!foreground && !keep) { job?.cancel(); job = null; source?.cancel(); source = null; return }
         if (job?.isActive == true) return
         job = scope.launch {
             var wait = 2000L
@@ -53,8 +60,6 @@ class Live(private val api: Api, private val session: Session) {
             }
         }
     }
-
-    fun stop() { foreground = false; job?.cancel(); job = null; source?.cancel(); source = null }
 
     /** Abre la conexión y espera a que se cierre. true si llegó a conectar. */
     private suspend fun runOnce(): Boolean {

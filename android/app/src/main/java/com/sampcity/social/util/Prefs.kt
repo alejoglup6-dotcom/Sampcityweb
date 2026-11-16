@@ -6,6 +6,8 @@ class Prefs(ctx: Context) {
     private val p = ctx.getSharedPreferences("prefs", Context.MODE_PRIVATE)
     /** "system", "dark" o "light" */
     var theme: String get() = p.getString("theme", "system") ?: "system"; set(v) { p.edit().putString("theme", v).apply() }
+    /** avisos al instante con la app cerrada (servicio con una notificación fija) */
+    var instantAlerts: Boolean get() = p.getBoolean("instantAlerts", true); set(v) { p.edit().putBoolean("instantAlerts", v).apply() }
     var bgAlerts: Boolean get() = p.getBoolean("bgAlerts", true); set(v) { p.edit().putBoolean("bgAlerts", v).apply() }
     var lastNotifId: Int get() = p.getInt("lastNotifId", -1); set(v) { p.edit().putInt("lastNotifId", v).apply() }
     var lastMsgCount: Int get() = p.getInt("lastMsgCount", 0); set(v) { p.edit().putInt("lastMsgCount", v).apply() }
