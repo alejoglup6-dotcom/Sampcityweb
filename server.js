@@ -232,7 +232,7 @@ require("./routes/launcher")(app, { path, store, E, q, attach, ROOT: __dirname }
 // ---- SEO: robots.txt, sitemap.xml e index con la URL real (canonical / Open Graph) ----
 const fs = require("fs");
 // Cada página es su propio archivo en public/ con su propia URL (ver README)
-const ROUTES = { "/": "index", "/reels": "reels", "/marketplace": "marketplace", "/feed": "feed", "/amigos": "amigos", "/mensajes": "mensajes", "/configuracion": "configuracion", "/buscar": "buscar", "/noticias": "noticias", "/actualizaciones": "actualizaciones", "/faq": "faq", "/fotos": "fotos", "/staff": "staff", "/solicitar-staff": "solicitar-staff", "/clasificacion": "clasificacion", "/reglas": "reglas", "/testimonios": "testimonios", "/contacto": "contacto", "/comunidad": "comunidad", "/perfil": "perfil", "/notificaciones": "notificaciones", "/verificar": "verificar", "/guia": "guia" };
+const ROUTES = { "/": "index", "/reels": "reels", "/marketplace": "marketplace", "/feed": "feed", "/amigos": "amigos", "/mensajes": "mensajes", "/configuracion": "configuracion", "/grupos": "grupos", "/eventos": "eventos", "/buscar": "buscar", "/noticias": "noticias", "/actualizaciones": "actualizaciones", "/faq": "faq", "/fotos": "fotos", "/staff": "staff", "/solicitar-staff": "solicitar-staff", "/clasificacion": "clasificacion", "/reglas": "reglas", "/testimonios": "testimonios", "/contacto": "contacto", "/comunidad": "comunidad", "/perfil": "perfil", "/notificaciones": "notificaciones", "/verificar": "verificar", "/guia": "guia" };
 const PAGES = {}, VER = Date.now().toString(36); // la versión cambia en cada arranque: el navegador siempre baja el CSS/JS nuevo
 const USER_PAGE = fs.readFileSync(path.join(__dirname, "public", "usuario.html"), "utf8").replace(/\?v=1/g, "?v=" + VER);
 app.get("/u/:name", (req, res) => (/^\w{1,24}$/.test(req.params.name) ? res.type("html").set("Cache-Control", "no-cache").send(USER_PAGE) : res.status(404).sendFile(path.join(__dirname, "public", "404.html"))));
@@ -261,6 +261,7 @@ app.get("/sitemap.xml", (req, res) => res.type("application/xml").send(`<?xml ve
 app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", setHeaders: (res, f) => { if (/[\\/]assets[\\/]fonts[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=31536000, immutable"); else if (/[\\/]assets[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=86400"); } }));
 const social = require("./routes/social")(app, { sec, friendIds, express, str, pid, SKIN_COL, SKIN_URL, q, sessionId, hit, me });
 require("./routes/extra")(app, { sec, attach, friendIds, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
+require("./routes/grupos")(app, { sec, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
 require("./routes/market")(app, { express, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me });
 
 require("./routes/vacantes")(app, { E, str, pid, MIN_POST, SKIN_COL, ADMIN_LEVELS, q, hit, me, BCAST, notify });
@@ -287,6 +288,14 @@ app.use((err, req, res, next) => {
   await sec.loadLogout();
   const addCol = async (tb, col, ddl) => { if (!(await q(`SHOW COLUMNS FROM ${tb} LIKE '${col}'`)).length) await q(`ALTER TABLE ${tb} ADD COLUMN ${col} ${ddl}`); }; // columnas nuevas sobre tablas que ya existen
   await addCol("web_posts", "vis", "TINYINT NOT NULL DEFAULT 0"); await addCol("web_posts", "share_id", "INT NULL"); await addCol("web_posts", "edited_at", "DATETIME NULL");
+  await addCol("web_posts", "group_id", "INT NULL");
+  await q("CREATE TABLE IF NOT EXISTS web_groups (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(60) NOT NULL, about VARCHAR(300) NOT NULL DEFAULT '', priv TINYINT NOT NULL DEFAULT 0, owner INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY n (name)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_group_members (group_id INT NOT NULL, player_id INT NOT NULL, role TINYINT NOT NULL DEFAULT 1, PRIMARY KEY (group_id, player_id), KEY p (player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_events (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(80) NOT NULL, about VARCHAR(600) NOT NULL DEFAULT '', place VARCHAR(80) NOT NULL DEFAULT '', starts DATETIME NOT NULL, owner INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY s (starts)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_event_rsvp (event_id INT NOT NULL, player_id INT NOT NULL, st TINYINT NOT NULL DEFAULT 1, PRIMARY KEY (event_id, player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_polls (post_id INT NOT NULL PRIMARY KEY, opts VARCHAR(600) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_poll_votes (post_id INT NOT NULL, player_id INT NOT NULL, opt TINYINT NOT NULL, PRIMARY KEY (post_id, player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_story_views (post_id INT NOT NULL, player_id INT NOT NULL, at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (post_id, player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await addCol("web_comments", "parent", "INT NULL"); await addCol("web_comments", "edited_at", "DATETIME NULL");
   await q("CREATE TABLE IF NOT EXISTS web_clikes (comment_id INT NOT NULL, player_id INT NOT NULL, PRIMARY KEY (comment_id, player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_hidden (player_id INT NOT NULL, post_id INT NOT NULL, PRIMARY KEY (player_id, post_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");

@@ -23,6 +23,10 @@ app.get("/api/posts", async (req, res) => {
   const where = [], wp = [], au = str(req.query.author);
   const bl = uid ? await sec.blockedIds(uid) : []; // no se muestran publicaciones de jugadores con bloqueo entre ambos
   if (bl.length) { where.push("p.author NOT IN (SELECT name FROM player WHERE id IN (?))"); wp.push(bl); }
+  const gid = pid(req.query.group); // las publicaciones de un grupo solo salen dentro del grupo
+  if (gid) { const g = (await q("SELECT priv FROM web_groups WHERE id = ?", [gid]))[0];
+    if (!g || (Number(g.priv) && !(uid && (await q("SELECT 1 FROM web_group_members WHERE group_id = ? AND player_id = ? AND role > 0", [gid, uid])).length))) return res.json([]);
+    where.push("p.group_id = ?"); wp.push(gid); } else where.push("p.group_id IS NULL");
   // privacidad: 0 pública, 1 amigos, 2 solo yo. Sin sesión solo se ven las públicas.
   const fids = uid ? await friendIds(uid) : [], vn = uid ? (await q("SELECT name FROM player WHERE id IN (?)", [[...fids, uid]])).map((r) => r.name) : [], myName = uid ? ((await q("SELECT name FROM player WHERE id = ?", [uid]))[0] || {}).name || "" : "";
   if (!uid) where.push("p.vis = 0"); else { where.push("(p.vis = 0 OR p.author = ? OR (p.vis = 1 AND p.author IN (?)))"); wp.push(myName, vn); where.push("p.id NOT IN (SELECT post_id FROM web_hidden WHERE player_id = ?)"); wp.push(uid); }
@@ -34,18 +38,19 @@ app.get("/api/posts", async (req, res) => {
   }
   if (req.query.type === "feed") where.push("(p.type = 'post' OR (p.type = 'story' AND p.created_at > NOW() - INTERVAL 24 HOUR))"); else if (type) { where.push("p.type = ?"); wp.push(type); if (type === "story") where.push("p.created_at > NOW() - INTERVAL 24 HOUR"); } // las historias duran 24 h
   if (/^\w{1,24}$/.test(au)) { where.push("p.author = ?"); wp.push(au); }
-  res.json(await attach(await q(`SELECT p.id, p.type, p.title, p.body, p.author, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, p.created_at, p.vis, p.share_id, p.edited_at, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COALESCE(MAX(l.kind), 0) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine, (SELECT GROUP_CONCAT(DISTINCT l.kind ORDER BY l.kind) FROM web_likes l WHERE l.post_id = p.id) AS rk FROM web_posts p ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY p.id DESC LIMIT ? OFFSET ?`, [uid, ...wp, paged ? per + 1 : per, pg * per])));
+  res.json(await attach(await q(`SELECT p.id, p.type, p.title, p.body, p.author, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, p.created_at, p.vis, p.share_id, p.edited_at, p.group_id, (SELECT g.name FROM web_groups g WHERE g.id = p.group_id) AS gname, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COALESCE(MAX(l.kind), 0) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine, (SELECT GROUP_CONCAT(DISTINCT l.kind ORDER BY l.kind) FROM web_likes l WHERE l.post_id = p.id) AS rk FROM web_posts p ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY p.id DESC LIMIT ? OFFSET ?`, [uid, ...wp, paged ? per + 1 : per, pg * per]), uid));
 });
-const ONE = (extra = "") => `SELECT p.id, p.type, p.title, p.body, p.author, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, p.created_at, p.vis, p.share_id, p.edited_at, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COALESCE(MAX(l.kind), 0) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine, (SELECT GROUP_CONCAT(DISTINCT l.kind ORDER BY l.kind) FROM web_likes l WHERE l.post_id = p.id) AS rk FROM web_posts p WHERE p.id = ? ${extra}`;
+const ONE = (extra = "") => `SELECT p.id, p.type, p.title, p.body, p.author, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, p.created_at, p.vis, p.share_id, p.edited_at, p.group_id, (SELECT g.name FROM web_groups g WHERE g.id = p.group_id) AS gname, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COALESCE(MAX(l.kind), 0) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine, (SELECT GROUP_CONCAT(DISTINCT l.kind ORDER BY l.kind) FROM web_likes l WHERE l.post_id = p.id) AS rk FROM web_posts p WHERE p.id = ? ${extra}`;
 const STORY_LIVE = "AND (p.type <> 'story' OR p.created_at > NOW() - INTERVAL 24 HOUR)";
 app.get("/api/posts/:id(\\d+)", async (req, res) => {
   const id = pid(req.params.id), uid = sessionId(req) || 0;
   const row = (await q(ONE(), [uid, id]))[0];
   if (!row) return res.status(404).json({ error: "No existe" });
+  if (row.group_id && Number(((await q("SELECT priv FROM web_groups WHERE id = ?", [row.group_id]))[0] || {}).priv) && !(uid && (await q("SELECT 1 FROM web_group_members WHERE group_id = ? AND player_id = ? AND role > 0", [row.group_id, uid])).length)) return res.status(404).json({ error: "No existe" }); // grupo privado
   if (Number(row.vis) > 0) { const v = uid ? (await q("SELECT name, admin_level FROM player WHERE id = ?", [uid]))[0] : null; // amigos / solo yo
     if (!v || (v.name !== row.author && !(Number(v.admin_level) >= MIN_POST) && (Number(row.vis) === 2 || !(await friendIds(uid)).map(Number).includes(Number(((await q("SELECT id FROM player WHERE name = ?", [row.author]))[0] || {}).id))))) return res.status(404).json({ error: "No existe" }); }
   if (row.type === "story" && !(await q("SELECT 1 FROM web_posts p WHERE p.id = ? " + STORY_LIVE, [id])).length) return res.status(404).json({ error: "Esta historia ya caducó" });
-  res.json((await attach([row]))[0]);
+  res.json((await attach([row], uid))[0]);
 });
 app.post("/api/posts", async (req, res) => {
   const u = await staffOnly(req, res); if (!u) return;
@@ -93,6 +98,10 @@ app.post("/api/wall", async (req, res) => {
   const vis = Math.min(2, Math.max(0, Math.floor(Number(req.body.vis)) || 0)), share = pid(req.body.share);
   const orig = share ? (await q("SELECT id, author FROM web_posts WHERE id = ? AND vis = 0 AND type IN ('post', 'news', 'update', 'photo', 'reel')", [share]))[0] : null;
   if (share && !orig) return res.status(404).json({ error: "Esa publicación ya no se puede compartir" });
+  const grp = pid(req.body.group); // publicar dentro de un grupo: hay que ser miembro
+  if (grp && !(await q("SELECT 1 FROM web_group_members WHERE group_id = ? AND player_id = ? AND role > 0", [grp, u.id])).length) return res.status(403).json({ error: "Únete al grupo para publicar" });
+  const poll = Array.isArray(req.body.poll) ? [...new Set(req.body.poll.map(str).map((s) => s.replace(/\s+/g, " ").trim().slice(0, 60)).filter(Boolean))].slice(0, 4) : [];
+  if (poll.length === 1 || (poll.length && !body)) return res.status(400).json({ error: "Una encuesta necesita una pregunta y al menos 2 opciones" });
   if (!body && !mids.length && !orig) return res.status(400).json({ error: "Escribe algo o agrega una foto" });
   if (!hit("p|" + u.id, 5, 60000)) return res.status(429).json({ error: "Vas muy rápido, espera un momento" });
   if (mids.length && (await q("SELECT m.id FROM web_media m WHERE m.id IN (?) AND m.owner = ? AND m.kind = 'img' AND NOT EXISTS (SELECT 1 FROM web_post_media x WHERE x.media_id = m.id)", [mids, u.id])).length !== mids.length) return res.status(400).json({ error: "Alguna foto no es válida, vuelve a subirla" });
@@ -102,7 +111,8 @@ app.post("/api/wall", async (req, res) => {
     for (const t of tg) { const pv = Number((await sec.getSettings(t.id)).tag); if (!bl.has(Number(t.id)) && (Number(t.id) === Number(u.id) || pv === 0 || (pv === 1 && mine.has(Number(t.id))))) ok.push(t); }
     tg = ok;
   }
-  const r = await q("INSERT INTO web_posts (type, title, body, author, vis, share_id) VALUES ('post', '', ?, ?, ?, ?)", [body, u.name, vis, orig ? orig.id : null]);
+  const r = await q("INSERT INTO web_posts (type, title, body, author, vis, share_id, group_id) VALUES ('post', '', ?, ?, ?, ?, ?)", [body, u.name, grp ? 0 : vis, orig ? orig.id : null, grp || null]);
+  if (poll.length) await q("INSERT INTO web_polls (post_id, opts) VALUES (?, ?)", [r.insertId, JSON.stringify(poll)]);
   if (orig) { const oa = (await q("SELECT id FROM player WHERE name = ?", [orig.author]))[0]; if (oa) await notify(oa.id, u, "share", r.insertId, body); }
   for (const [i, m] of mids.entries()) await q("INSERT INTO web_post_media (post_id, media_id, pos) VALUES (?, ?, ?)", [r.insertId, m, i]);
   for (const t of tg) await q("INSERT IGNORE INTO web_tags (post_id, player_id, name) VALUES (?, ?, ?)", [r.insertId, t.id, t.name]);
@@ -297,10 +307,16 @@ async function removePosts(ids) { // borra publicaciones con sus me gusta, comen
   await q("DELETE FROM web_posts WHERE id IN (?)", [ids]);
   await delMedia(ms.flatMap((m) => [m.id, m.thumb]));
 }
-async function attach(rows) { // añade fotos/videos y etiquetas a cada publicación
+async function attach(rows, uid = 0) { // añade fotos/videos, etiquetas, encuesta y publicación compartida
   if (!rows.length) return rows;
   const ids = rows.map((r) => r.id), ms = await q("SELECT pm.post_id, m.id, m.kind, m.thumb FROM web_post_media pm JOIN web_media m ON m.id = pm.media_id WHERE pm.post_id IN (?) ORDER BY pm.pos", [ids]), ts = await q("SELECT post_id, name FROM web_tags WHERE post_id IN (?) ORDER BY player_id", [ids]);
   for (const r of rows) { r.media = ms.filter((m) => m.post_id === r.id).map((m) => ({ id: m.id, kind: m.kind, thumb: m.thumb })); r.tags = ts.filter((t) => t.post_id === r.id).map((t) => t.name); }
+  const pl = await q("SELECT post_id, opts FROM web_polls WHERE post_id IN (?)", [ids]);
+  if (pl.length) {
+    const pids = pl.map((x) => x.post_id), vs = await q("SELECT post_id, opt, COUNT(*) AS n FROM web_poll_votes WHERE post_id IN (?) GROUP BY post_id, opt", [pids]), mv = uid ? await q("SELECT post_id, opt FROM web_poll_votes WHERE player_id = ? AND post_id IN (?)", [uid, pids]) : [];
+    for (const x of pl) { const r = rows.find((y) => y.id === x.post_id); let o = []; try { o = JSON.parse(x.opts); } catch {}
+      if (r) r.poll = { opts: o.map((t, i) => ({ t, n: Number((vs.find((v) => v.post_id === x.post_id && Number(v.opt) === i) || {}).n) || 0 })), mine: Number((mv.find((m) => m.post_id === x.post_id) || { opt: -1 }).opt) }; }
+  }
   const sh = [...new Set(rows.map((r) => Number(r.share_id)).filter(Boolean))];
   if (sh.length) {
     const os = await q(`SELECT p.id, p.type, p.title, p.body, p.author, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, p.created_at FROM web_posts p WHERE p.id IN (?) AND p.vis = 0 AND p.type <> 'story'`, [sh]);
