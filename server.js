@@ -6,6 +6,7 @@ const compression = require("compression");
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcryptjs");
 const store = require("./store");
+const { packSession, parseSession, totpOk } = require("./lib/util");
 
 const E = process.env;
 const BASE = (E.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -24,20 +25,21 @@ const ADMIN_LEVELS = ["Ciudadano", "Soporte", "Ayudante", "Moderador", "Moderado
 const pool = mysql.createPool({ host: E.MYSQL_HOST, port: Number(E.MYSQL_PORT) || 3306, user: E.MYSQL_USER, password: E.MYSQL_PASSWORD, database: E.MYSQL_DATABASE, charset: "utf8mb4", connectionLimit: Math.max(2, Number(E.MYSQL_POOL) || 10), ssl: E.MYSQL_SSL === "1" ? { minVersion: "TLSv1.2", rejectUnauthorized: E.MYSQL_SSL_STRICT !== "0" } : undefined, dateStrings: true, supportBigNumbers: true, bigNumberStrings: true });
 const q = async (sql, p) => (await pool.query(sql, p))[0];
 
-// ---- Sesión: cookie firmada (HMAC), HttpOnly, 7 días ----
-const sign = (v) => crypto.createHmac("sha256", SECRET).update(v).digest("base64url");
+// ---- Sesión: cookie firmada (HMAC), HttpOnly, 7 días. Cada sesión lleva su id (sid): se listan y se cierran una a una ----
 const LOGOUT = new Map(); // jugador → momento del último «cerrar sesión en todos los dispositivos»
-function setSession(res, id, extra = "") {
-  const v = `${id}.${Date.now() + 7 * 864e5}`;
-  res.append("Set-Cookie", `sc=${v}.${sign(v)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800${HTTPS ? "; Secure" : ""}${extra}`);
+const REVOKED = new Set(); // sesiones cerradas a distancia (se recarga de web_sessions cada minuto)
+function setSession(res, id, extra = "", req = null) {
+  const sid = crypto.randomBytes(8).toString("hex"), exp = Date.now() + 7 * 864e5;
+  res.append("Set-Cookie", `sc=${packSession(SECRET, id, exp, sid)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800${HTTPS ? "; Secure" : ""}${extra}`);
+  q("INSERT INTO web_sessions (sid, player_id, ua, ip, exp) VALUES (?, ?, ?, ?, ?)", [sid, id, String((req && req.headers["user-agent"]) || "").slice(0, 200), String((req && req.ip) || "").replace(/^::ffff:/, "").slice(0, 45), exp]).catch((e) => console.log("[sesión]", e.message));
+  return sid;
 }
-function sessionId(req) {
-  const m = (req.headers.cookie || "").match(/(?:^|; )sc=([^;]+)/);
-  if (!m) return null;
-  const [id, exp, sig] = m[1].split(".");
-  const ok = id && exp && sig && sig.length === sign(`${id}.${exp}`).length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(sign(`${id}.${exp}`)));
-  return ok && Number(exp) > Date.now() && /^\d+$/.test(id) && Number(exp) - 7 * 864e5 >= (LOGOUT.get(Number(id)) || 0) ? Number(id) : null; // la cookie debe ser posterior al último cierre global
+function sessionOf(req) { // { id, exp, sid } de la cookie, o null
+  if (req._ses !== undefined) return req._ses;
+  const m = (req.headers.cookie || "").match(/(?:^|; )sc=([^;]+)/), s = m ? parseSession(SECRET, m[1]) : null;
+  return (req._ses = s && s.exp - 7 * 864e5 >= (LOGOUT.get(s.id) || 0) && !(s.sid && REVOKED.has(s.sid)) ? s : null); // la cookie debe ser posterior al último cierre global
 }
+const sessionId = (req) => { const s = sessionOf(req); return s ? s.id : null; };
 const clearSession = (res) => res.append("Set-Cookie", `sc=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${HTTPS ? "; Secure" : ""}`);
 
 // ---- Contraseñas: igual que snrp.pwn (bcrypt $2a/$2b/$2y, o SHA256(clave + sal) en mayúsculas) ----
@@ -72,13 +74,17 @@ const app = express();
 // Express 4 no captura errores de funciones async: así un fallo de la base de datos no tumba el servidor
 ["get", "post", "put", "delete"].forEach((m) => { const o = app[m].bind(app); app[m] = (p, ...h) => (h.length ? o(p, ...h.map((f) => (typeof f === "function" && f.length < 4 ? (a, b, c) => Promise.resolve(f(a, b, c)).catch(c) : f))) : o(p)); });
 app.set("trust proxy", 1);
-app.use(compression()); // gzip/deflate para HTML, CSS, JS y JSON (el video y las imágenes ya vienen comprimidos y se saltan)
+app.use(compression({ filter: (req, res) => req.path !== "/api/stream" && compression.filter(req, res) })); // gzip/deflate para HTML, CSS, JS y JSON (el video y las imágenes ya vienen comprimidos y se saltan)
 app.disable("x-powered-by");
 // 18-19. HTTPS forzado + cabeceras de seguridad
-const CSP = ["default-src 'self'", "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com", "style-src 'self' 'unsafe-inline'", "font-src 'self'", "img-src 'self' data: blob: https:", "media-src 'self' blob:", "connect-src 'self'", "frame-src https://challenges.cloudflare.com", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'"].join("; ");
+// script-src-elem (se completa al cargar las páginas): solo corren los <script> propios y los en línea conocidos (por su hash);
+// un <script> inyectado no se ejecuta. Los navegadores viejos usan script-src.
+let CSP = "";
+const cspBuild = (hashes = []) => ["default-src 'self'", "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com", `script-src-elem 'self' https://challenges.cloudflare.com ${hashes.map((h) => `'sha256-${h}'`).join(" ")}`.trim(), "script-src-attr 'unsafe-inline'", "worker-src 'self'", "manifest-src 'self'", "style-src 'self' 'unsafe-inline'", "font-src 'self'", "img-src 'self' data: blob: https:", "media-src 'self' blob:", "connect-src 'self'", "frame-src https://challenges.cloudflare.com", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'"].join("; ");
+CSP = cspBuild();
 app.use((req, res, next) => {
   if (HTTPS && req.headers["x-forwarded-proto"] === "http") return res.redirect(301, BASE + req.originalUrl);
-  res.set({ "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "same-origin", "Content-Security-Policy": CSP, "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()", "Cross-Origin-Opener-Policy": "same-origin" });
+  res.set({ "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "same-origin", "Content-Security-Policy": CSP, "Permissions-Policy": "camera=(), microphone=(self), geolocation=(), payment=(), usb=()", "Cross-Origin-Opener-Policy": "same-origin" });
   if (HTTPS) res.set("Strict-Transport-Security", "max-age=31536000");
   next();
 });
@@ -105,16 +111,17 @@ app.use("/api", (req, res, next) => {
   next();
 });
 
-app.use((req, res, next) => {
-  if (req.tebexWebhook || req.path === "/api/photos" || req.path === "/api/market" || req.path === "/api/profile/photo" || /^\/api\/chat\/\w{1,24}$/.test(req.path)) return next(); // estas rutas traen su propio lector (aceptan una foto)
-  return express.json({ limit: "20kb" })(req, res, next);
-});
+const BIG_BODY = (p) => p === "/api/photos" || p === "/api/market" || p === "/api/profile/photo" || /^\/api\/chat\/\w{1,24}$/.test(p) || /^\/api\/rooms\/\d+$/.test(p); // rutas que aceptan una foto o un audio
+const jsonSmall = express.json({ limit: "20kb" }), jsonBig = express.json({ limit: "1500kb" });
+app.use((req, res, next) => (req.tebexWebhook || req.path === "/api/media" ? next() : (BIG_BODY(req.path) ? jsonBig : jsonSmall)(req, res, next)));
 const me = async (req) => {
   const id = sessionId(req);
   if (!id) return null;
   const r = await q("SELECT id, name, admin_level FROM player WHERE id = ?", [id]);
   return r[0] || null;
 };
+const vivo = require("./routes/vivo")(app, { E, BASE, str, q, sessionId, hit }); // tiempo real y push
+const mod = require("./routes/moderacion")(app, { str, pid, MIN_POST, SKIN_COL, q, sessionId, me }); // suspensiones y filtro de palabras (va antes de las demás rutas)
 
 // ---- Notificaciones: me gusta, comentarios, menciones, etiquetas, noticias, amistades (por agregar), etc. ----
 // notify(destino, actor, tipo, id_publicación, texto): cualquier parte del servidor puede crear una notificación.
@@ -131,6 +138,8 @@ async function notify(to, actor, type, postId = null, body = "") {
     if (ONCE.has(type) && (await q("SELECT 1 FROM web_notifs WHERE player_id = ? AND actor_id = ? AND type = ? AND post_id <=> ? LIMIT 1", [to, actor.id, type, postId])).length) return;
     if (UNREAD_ONCE.has(type) && (await q("SELECT 1 FROM web_notifs WHERE player_id = ? AND type = ? AND post_id <=> ? AND seen = 0 LIMIT 1", [to, type, postId])).length) return;
     await q("INSERT INTO web_notifs (player_id, actor_id, type, post_id, body) VALUES (?, ?, ?, ?, ?)", [to, actor.id, type, postId, String(body).replace(/\s+/g, " ").trim().slice(0, 140)]);
+    vivo.send(to, "notif", { type }); // la campana se actualiza al instante
+    vivo.push(to, vivo.notifText(type, actor.name, postId, body));
   } catch (e) { console.log("[notif] error al crear el aviso:", e.message); }
 }
 const unreadCount = async (uid) => Number((await q(`SELECT COUNT(*) AS n ${NJ} AND n.seen = 0`, [uid]))[0].n);
@@ -185,7 +194,7 @@ app.post("/api/register", async (req, res) => {
     console.log("[registro]", e.message);
     return res.status(500).json({ error: "No se pudo crear la cuenta. Inténtalo de nuevo." });
   }
-  setSession(res, id);
+  setSession(res, id, "", req);
   res.json({ ok: true });
 });
 
@@ -201,11 +210,18 @@ app.post("/api/login", async (req, res) => {
     await q("INSERT INTO web_tries (k, t) VALUES (?, ?), (?, ?)", [key, Date.now(), ipKey, Date.now()]);
     return res.status(401).json({ error: "Nombre o contraseña incorrectos" });
   }
+  // verificación en dos pasos: si está activa, además de la contraseña hace falta el código de la app
+  const tf = (await q("SELECT totp FROM web_settings WHERE player_id = ? AND totp_on = 1", [r.id]).catch(() => []))[0];
+  if (tf && tf.totp) {
+    const code = str(req.body.code).trim();
+    if (!code) return res.status(401).json({ error: "Escribe el código de 6 dígitos de tu app de verificación", totp: true });
+    if (!totpOk(tf.totp, code)) { await q("INSERT INTO web_tries (k, t) VALUES (?, ?), (?, ?)", [key, Date.now(), ipKey, Date.now()]); return res.status(401).json({ error: "Código incorrecto", totp: true }); }
+  }
   await q("DELETE FROM web_tries WHERE k = ?", [key]);
-  setSession(res, r.id);
+  setSession(res, r.id, "", req);
   res.json({ ok: true });
 });
-app.post("/api/logout", (req, res) => { clearSession(res); res.json({ ok: true }); });
+app.post("/api/logout", async (req, res) => { const s = sessionOf(req); if (s && s.sid) await cuenta.revoke(s.sid); clearSession(res); res.json({ ok: true }); });
 
 // ---- Cuenta (solo datos propios) ----
 app.get("/api/me", async (req, res) => {
@@ -213,18 +229,20 @@ app.get("/api/me", async (req, res) => {
   if (!u) return res.json({ user: null });
   const a = (await q(`SELECT p.name, p.${SKIN_COL} AS skin, p.reg_date, p.last_connection, p.time_playing, p.level, p.rep, p.connected, p.admin_level, p.vip, p.vip_expire_date, p.cash, p.bank_money, p.phone_number, p.wanted_level, p.arrests_count, p.kills_count, c.name AS crew FROM player p LEFT JOIN crews c ON c.id = p.crew WHERE p.id = ?`, [u.id]))[0];
   const d = (await q("SELECT discord_id, linked_at FROM discord_links WHERE player_id = ?", [u.id]))[0];
-  const unread = await unreadCount(u.id).catch(() => 0);
+  const unread = await unreadCount(u.id).catch(() => 0), ses = sessionOf(req), ban = mod.banOf(u.id);
+  if (ses && ses.sid) q("UPDATE web_sessions SET last_seen = NOW() WHERE sid = ?", [ses.sid]).catch(() => {});
   const fc = (await q("SELECT SUM(status = 1) AS f, SUM(status = 0 AND b = ?) AS r FROM web_friends WHERE a = ? OR b = ?", [u.id, u.id, u.id]).catch(() => [{}]))[0];
-  res.json({ user: { ...a, rango: ADMIN_LEVELS[a.admin_level] || "Ciudadano", canPost: a.admin_level >= MIN_POST, discord: d || null, unread, friends: Number(fc.f) || 0, freq: Number(fc.r) || 0 } });
+  res.json({ user: { ...a, rango: ADMIN_LEVELS[a.admin_level] || "Ciudadano", canPost: a.admin_level >= MIN_POST, discord: d || null, banned: ban ? ban.until : 0, unread, friends: Number(fc.f) || 0, freq: Number(fc.r) || 0 } });
 });
 
 require("./routes/discord")(app, { crypto, store, E, BASE, q, sessionId, me, notify });
 
-const sec = require("./routes/seguridad")(app, { crypto, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, checkPassword, setSession, LOGOUT });
-const { friendIds, friendStates } = require("./routes/amigos")(app, { sec, str, pid, SKIN_COL, pool, q, sessionId, hit, me, NJ, notify, unreadCount });
+const sec = require("./routes/seguridad")(app, { crypto, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, checkPassword, setSession, LOGOUT, mod });
+const { friendIds, friendStates } = require("./routes/amigos")(app, { sec, str, pid, SKIN_COL, pool, q, sessionId, hit, me, NJ, notify, unreadCount, unreadMsgs: (id) => social.unreadMsgs(id) });
 
-const { STORY_LIVE, FFMPEG, attach, cleanup, canSee } = require("./routes/contenido")(app, { sec, path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates });
+const { STORY_LIVE, FFMPEG, attach, cleanup, canSee, removePosts } = require("./routes/contenido")(app, { vivo, mod, infoExtra: () => ({ verified: mod.verified(), mail: cuenta.mailOn(), push: vivo.pushOn() }), sec, path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates });
 
+const cuenta = require("./routes/cuenta")(app, { crypto, E, BASE, str, q, sessionOf, hit, me, checkPassword, captchaOk, setSession, clearSession, LOGOUT, REVOKED, getRemovePosts: () => removePosts });
 require("./routes/guia")(app, { path, str, MIN_POST, q, hit, me, ROOT: __dirname });
 
 require("./routes/launcher")(app, { path, store, E, q, attach, ROOT: __dirname });
@@ -232,15 +250,20 @@ require("./routes/launcher")(app, { path, store, E, q, attach, ROOT: __dirname }
 // ---- SEO: robots.txt, sitemap.xml e index con la URL real (canonical / Open Graph) ----
 const fs = require("fs");
 // Cada página es su propio archivo en public/ con su propia URL (ver README)
-const ROUTES = { "/": "index", "/reels": "reels", "/marketplace": "marketplace", "/feed": "feed", "/amigos": "amigos", "/mensajes": "mensajes", "/configuracion": "configuracion", "/grupos": "grupos", "/eventos": "eventos", "/buscar": "buscar", "/noticias": "noticias", "/actualizaciones": "actualizaciones", "/faq": "faq", "/fotos": "fotos", "/staff": "staff", "/solicitar-staff": "solicitar-staff", "/clasificacion": "clasificacion", "/reglas": "reglas", "/testimonios": "testimonios", "/contacto": "contacto", "/comunidad": "comunidad", "/perfil": "perfil", "/notificaciones": "notificaciones", "/verificar": "verificar", "/guia": "guia" };
+const ROUTES = { "/": "index", "/reels": "reels", "/marketplace": "marketplace", "/feed": "feed", "/amigos": "amigos", "/mensajes": "mensajes", "/configuracion": "configuracion", "/grupos": "grupos", "/eventos": "eventos", "/buscar": "buscar", "/noticias": "noticias", "/actualizaciones": "actualizaciones", "/faq": "faq", "/fotos": "fotos", "/staff": "staff", "/solicitar-staff": "solicitar-staff", "/clasificacion": "clasificacion", "/reglas": "reglas", "/testimonios": "testimonios", "/contacto": "contacto", "/comunidad": "comunidad", "/perfil": "perfil", "/notificaciones": "notificaciones", "/verificar": "verificar", "/guia": "guia", "/recuperar": "recuperar", "/panel": "panel" };
 const PAGES = {}, VER = Date.now().toString(36); // la versión cambia en cada arranque: el navegador siempre baja el CSS/JS nuevo
-const USER_PAGE = fs.readFileSync(path.join(__dirname, "public", "usuario.html"), "utf8").replace(/\?v=1/g, "?v=" + VER);
+const USER_PAGE = fs.readFileSync(path.join(__dirname, "public", "usuario.html"), "utf8").replace(/\?v=\d+/g, "?v=" + VER);
 app.get("/u/:name", (req, res) => (/^\w{1,24}$/.test(req.params.name) ? res.type("html").set("Cache-Control", "no-cache").send(USER_PAGE) : res.status(404).sendFile(path.join(__dirname, "public", "404.html"))));
 for (const [url, file] of Object.entries(ROUTES)) {
-  PAGES[url] = fs.readFileSync(path.join(__dirname, "public", file + ".html"), "utf8").replace(/\{\{BASE\}\}/g, BASE).replace(/\?v=1/g, "?v=" + VER);
+  PAGES[url] = fs.readFileSync(path.join(__dirname, "public", file + ".html"), "utf8").replace(/\{\{BASE\}\}/g, BASE).replace(/\?v=\d+/g, "?v=" + VER);
   app.get(url === "/" ? ["/", "/index.html"] : [url, url + ".html"], (req, res) => res.type("html").set("Cache-Control", "public, max-age=300").send(PAGES[url]));
 }
-const PUB_PAGE = fs.readFileSync(path.join(__dirname, "public", "publicacion.html"), "utf8").replace(/\?v=1/g, "?v=" + VER);
+{ // hashes de los <script> en línea de todas las páginas (tal como se sirven)
+  const hs = new Set(), scan = (html) => { for (const m of html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)) hs.add(crypto.createHash("sha256").update(m[1]).digest("base64")); };
+  for (const f of fs.readdirSync(path.join(__dirname, "public")).filter((f) => f.endsWith(".html"))) { const h = fs.readFileSync(path.join(__dirname, "public", f), "utf8"); scan(h); scan(h.replace(/\{\{BASE\}\}/g, BASE).replace(/\?v=\d+/g, "?v=" + VER)); }
+  CSP = cspBuild([...hs]);
+}
+const PUB_PAGE = fs.readFileSync(path.join(__dirname, "public", "publicacion.html"), "utf8").replace(/\?v=\d+/g, "?v=" + VER);
 const oe = (v) => String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 app.get("/p/:id(\\d+)", async (req, res) => { // enlace propio de cada publicación/historia, con vista previa al compartir
   const id = pid(req.params.id);
@@ -257,11 +280,12 @@ app.get("/p/:id(\\d+)", async (req, res) => { // enlace propio de cada publicaci
   res.type("html").set("Cache-Control", "no-cache").send(PUB_PAGE.replace(/\{\{OGTITLE\}\}/g, oe(t)).replace(/\{\{OGDESC\}\}/g, oe(d)).replace(/\{\{OGIMG\}\}/g, oe(img)).replace(/\{\{OGURL\}\}/g, oe(`${BASE}/p/${id}`)));
 });
 app.get("/robots.txt", (req, res) => res.type("text/plain").send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /auth/\nDisallow: /notificaciones\nDisallow: /amigos\n\nSitemap: ${BASE}/sitemap.xml\n`));
-app.get("/sitemap.xml", (req, res) => res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Object.keys(ROUTES).filter((u) => u !== "/perfil" && u !== "/notificaciones" && u !== "/amigos" && u !== "/mensajes" && u !== "/configuracion" && u !== "/buscar" && u !== "/verificar").map((u) => `  <url><loc>${BASE}${u}</loc><changefreq>${u === "/" || u === "/noticias" ? "daily" : "weekly"}</changefreq><priority>${u === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}\n</urlset>\n`));
-app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", setHeaders: (res, f) => { if (/[\\/]assets[\\/]fonts[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=31536000, immutable"); else if (/[\\/]assets[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=86400"); } }));
-const social = require("./routes/social")(app, { sec, friendIds, express, str, pid, SKIN_COL, SKIN_URL, q, sessionId, hit, me });
+app.get("/sitemap.xml", (req, res) => res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Object.keys(ROUTES).filter((u) => u !== "/perfil" && u !== "/notificaciones" && u !== "/amigos" && u !== "/mensajes" && u !== "/configuracion" && u !== "/buscar" && u !== "/verificar" && u !== "/recuperar" && u !== "/panel").map((u) => `  <url><loc>${BASE}${u}</loc><changefreq>${u === "/" || u === "/noticias" ? "daily" : "weekly"}</changefreq><priority>${u === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}\n</urlset>\n`));
+app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", setHeaders: (res, f) => { if (/[\\/]assets[\\/]fonts[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=31536000, immutable"); else if (/[\\/]assets[\\/]/.test(f)) res.set("Cache-Control", /[?&]v=\w+/.test(res.req.url) ? "public, max-age=31536000, immutable" : "public, max-age=86400"); else if (/[\\/]sw\.js$/.test(f)) res.set("Cache-Control", "no-cache"); } }));
+const social = require("./routes/social")(app, { vivo, sec, friendIds, express, str, pid, SKIN_COL, SKIN_URL, q, sessionId, hit, me });
 require("./routes/extra")(app, { canSee, sec, attach, friendIds, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
-require("./routes/grupos")(app, { canSee, sec, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
+require("./routes/enlaces")(app, { crypto, str, q, sessionId, hit });
+require("./routes/grupos")(app, { mod, canSee, sec, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
 require("./routes/market")(app, { express, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me });
 
 require("./routes/vacantes")(app, { E, str, pid, MIN_POST, SKIN_COL, ADMIN_LEVELS, q, hit, me, BCAST, notify });
@@ -276,6 +300,8 @@ app.use((err, req, res, next) => {
   res.status(st).json({ error: st === 500 ? "Error del servidor" : st === 413 ? "Contenido demasiado grande" : "Petición no válida" });
 });
 
+const addKey = async (tb, key, cols) => { try { if (!(await q(`SHOW INDEX FROM ${tb} WHERE Key_name = ?`, [key])).length) await q(`ALTER TABLE ${tb} ADD INDEX ${key} (${cols})`); } catch (e) { console.log("[índice]", tb, key, e.message); } };
+const addColEarly = async () => { for (const [c, d] of [["totp", "VARCHAR(40) NOT NULL DEFAULT ''"], ["totp_on", "TINYINT NOT NULL DEFAULT 0"]]) if (!(await q(`SHOW COLUMNS FROM web_settings LIKE '${c}'`)).length) await q(`ALTER TABLE web_settings ADD COLUMN ${c} ${d}`); };
 (async () => {
   // Tablas propias de la web (no se toca ninguna del juego)
   await q(`CREATE TABLE IF NOT EXISTS web_posts (id INT AUTO_INCREMENT PRIMARY KEY, type VARCHAR(8) NOT NULL, title VARCHAR(120) NOT NULL, body TEXT NOT NULL, author VARCHAR(24) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY t (type)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
@@ -285,6 +311,8 @@ app.use((err, req, res, next) => {
   await q("CREATE TABLE IF NOT EXISTS web_settings (player_id INT NOT NULL PRIMARY KEY, msg TINYINT NOT NULL DEFAULT 0, prof TINYINT NOT NULL DEFAULT 0, tag TINYINT NOT NULL DEFAULT 0, nmask INT NOT NULL DEFAULT 0, logout_at BIGINT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_blocks (a INT NOT NULL, b INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (a, b), KEY b (b)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_reports (id INT AUTO_INCREMENT PRIMARY KEY, reporter INT NOT NULL, kind VARCHAR(8) NOT NULL, target INT NOT NULL, reason VARCHAR(20) NOT NULL, note VARCHAR(300) NOT NULL DEFAULT '', status TINYINT NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY st (status, id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await addColEarly();
+  await cuenta.init(); await mod.init(); await vivo.init();
   await sec.loadLogout();
   const addCol = async (tb, col, ddl) => { if (!(await q(`SHOW COLUMNS FROM ${tb} LIKE '${col}'`)).length) await q(`ALTER TABLE ${tb} ADD COLUMN ${col} ${ddl}`); }; // columnas nuevas sobre tablas que ya existen
   await addCol("web_posts", "vis", "TINYINT NOT NULL DEFAULT 0"); await addCol("web_posts", "share_id", "INT NULL"); await addCol("web_posts", "edited_at", "DATETIME NULL");
@@ -400,6 +428,15 @@ app.use((err, req, res, next) => {
     VALUES (7726831, '10 Coins', 'coins', 10, 0)
     ON DUPLICATE KEY UPDATE name = VALUES(name), kind = VALUES(kind), amount = VALUES(amount)`);
 
+  // Chat: responder, reacciones, audios y chats de grupo (room = id del chat de grupo; en ese caso b = 0)
+  await addCol("web_msgs", "room", "INT NULL"); await addCol("web_msgs", "reply_to", "INT NULL");
+  await q("CREATE TABLE IF NOT EXISTS web_msg_rx (msg_id INT NOT NULL, player_id INT NOT NULL, kind TINYINT NOT NULL DEFAULT 1, PRIMARY KEY (msg_id, player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_rooms (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(40) NOT NULL, owner INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_room_members (room_id INT NOT NULL, player_id INT NOT NULL, last_read INT NOT NULL DEFAULT 0, joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (room_id, player_id), KEY p (player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_previews (h CHAR(64) NOT NULL PRIMARY KEY, url VARCHAR(500) NOT NULL, title VARCHAR(140) NOT NULL DEFAULT '', descr VARCHAR(240) NOT NULL DEFAULT '', img VARCHAR(500) NOT NULL DEFAULT '', at BIGINT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await addCol("web_media", "disk", "TINYINT NOT NULL DEFAULT 0"); // 1 = el archivo está en MEDIA_DIR y no en la base de datos
+  // Índices para que el feed, los perfiles y el chat no recorran tablas enteras
+  for (const [tb, key, cols] of [["web_posts", "au", "author, id"], ["web_posts", "gr", "group_id, id"], ["web_posts", "ty", "type, id"], ["web_posts", "cr", "created_at"], ["web_likes", "pl", "player_id"], ["web_comments", "pc", "player_id, created_at"], ["web_comments", "pa", "parent"], ["web_msgs", "im", "img"], ["web_msgs", "rm", "room, id"], ["web_msgs", "bs", "b, seen"], ["web_tags", "pl", "player_id"], ["web_market", "ss", "status, id"]]) await addKey(tb, key, cols);
   setInterval(cleanup, 3600000).unref(); cleanup();
   console.log(FFMPEG ? `[reel] ffmpeg disponible: los reels pesados se convierten a MP4 liviano (${FFMPEG})` : "[reel] sin ffmpeg: los reels se guardan tal cual (instala ffmpeg-static para convertirlos)");
   app.listen(Number(E.PORT) || 3000, () => console.log(`[web] SampCity en ${BASE}`));

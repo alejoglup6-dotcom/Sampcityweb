@@ -62,7 +62,9 @@ module.exports = function store(app, { q, me, hit, str, pid, E, BASE }) {
   });
 
   // ---- Catálogo ----
+  let catalogCache = { at: 0, products: null }; // el catálogo se guarda 5 minutos: no se consulta Tebex en cada visita
   app.get("/api/store/catalog", async (req, res) => {
+    if (catalogCache.products && Date.now() - catalogCache.at < 300000) return res.json({ products: catalogCache.products });
     const products = await q("SELECT tebex_package_id, name, kind, amount FROM store_products WHERE active = 1 ORDER BY id");
     const catalog = [];
 
@@ -86,6 +88,7 @@ module.exports = function store(app, { q, me, hit, str, pid, E, BASE }) {
       }
     }
 
+    if (catalog.length === products.length) catalogCache = { at: Date.now(), products: catalog }; // solo si Tebex respondió todos
     res.json({ products: catalog });
   });
 

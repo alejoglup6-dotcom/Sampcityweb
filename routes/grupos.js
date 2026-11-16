@@ -1,5 +1,5 @@
 // Grupos, eventos, encuestas y vistas de historias.
-module.exports = (app, { canSee, sec, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify }) => {
+module.exports = (app, { mod, canSee, sec, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify }) => {
 const NAME = /^\w{1,24}$/, like = (s) => "%" + s.replace(/[\\%_]/g, "\\$&") + "%";
 const txt = (v, n) => str(v).replace(/\s+/g, " ").trim().slice(0, n);
 const isStaff = (u) => Number(u.admin_level) >= MIN_POST;
@@ -48,6 +48,7 @@ app.delete("/api/groups/:id(\\d+)", async (req, res) => { // el dueño (o el sta
   if (!g) return res.status(404).json({ error: "Ese grupo no existe" });
   if (Number(g.owner) !== Number(u.id) && !isStaff(u)) return res.status(403).json({ error: "Solo el creador del grupo" });
   await q("DELETE FROM web_posts WHERE group_id = ?", [id]); await q("DELETE FROM web_group_members WHERE group_id = ?", [id]); await q("DELETE FROM web_groups WHERE id = ?", [id]);
+  if (Number(g.owner) !== Number(u.id) && mod) await mod.log(u, "borrar grupo", `grupo ${id}`);
   res.json({ ok: true });
 });
 app.post("/api/groups/:id(\\d+)/join", async (req, res) => { // unirse (público) o pedir unirse (privado)

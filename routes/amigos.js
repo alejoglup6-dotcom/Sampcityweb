@@ -1,9 +1,9 @@
 // Rutas de amigos. Extraído de server.js sin cambiar su comportamiento.
-module.exports = (app, { sec, str, pid, SKIN_COL, pool, q, sessionId, hit, me, NJ, notify, unreadCount }) => {
+module.exports = (app, { sec, str, pid, SKIN_COL, pool, q, sessionId, hit, me, NJ, notify, unreadCount, unreadMsgs }) => {
 // ---- Notificaciones (API) ----
 app.get("/api/notifications/count", async (req, res) => {
   const id = sessionId(req);
-  res.json({ n: id ? await unreadCount(id).catch(() => 0) : 0, m: id ? await q("SELECT COUNT(*) AS n FROM web_msgs WHERE b = ? AND seen = 0", [id]).then((r) => Number(r[0].n)).catch(() => 0) : 0 }); // m = mensajes de chat sin leer
+  res.json({ n: id ? await unreadCount(id).catch(() => 0) : 0, m: id ? await unreadMsgs(id).catch(() => 0) : 0 }); // m = mensajes de chat sin leer
 });
 app.get("/api/notifications", async (req, res) => {
   const id = sessionId(req);

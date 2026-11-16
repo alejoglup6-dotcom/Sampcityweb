@@ -1,9 +1,10 @@
 // Rutas de contenido. Extraído de server.js sin cambiar su comportamiento.
-module.exports = (app, { sec, path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates }) => {
+const { hashtags } = require("../lib/util");
+module.exports = (app, { vivo, mod, infoExtra, sec, path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates }) => {
 // ---- Estado público (solo cifras, sin datos de cuentas) ----
 app.get("/api/info", async (req, res) => {
   const r = (await q("SELECT COUNT(*) AS total, COALESCE(SUM(connected), 0) AS online FROM player"))[0];
-  res.json({ now: (await q("SELECT DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s') AS n"))[0].n, total: Number(r.total), online: Number(r.online), ip: E.SERVER_IP || "", skinUrl: SKIN_URL, videoMax: Math.round(VID_MAX / 1048576), reelMax: Math.round(REEL_MAX / 1048576), reelSecs: REEL_SECS, turnstile: E.TURNSTILE_SECRET ? E.TURNSTILE_SITEKEY || "" : "" });
+  res.json({ now: (await q("SELECT DATE_FORMAT(NOW(), '%Y-%m-%d %H:%i:%s') AS n"))[0].n, total: Number(r.total), online: Number(r.online), ip: E.SERVER_IP || "", skinUrl: SKIN_URL, videoMax: Math.round(VID_MAX / 1048576), reelMax: Math.round(REEL_MAX / 1048576), reelSecs: REEL_SECS, turnstile: E.TURNSTILE_SECRET ? E.TURNSTILE_SITEKEY || "" : "", ...infoExtra() });
 });
 
 // ---- Staff (nombre y rango, nada más) ----
@@ -19,7 +20,8 @@ const TYPES = ["news", "update", "faq", "photo", "rules", "review", "post", "sto
 const staffOnly = async (req, res) => { const u = await me(req); if (!u || u.admin_level < MIN_POST) { res.status(403).json({ error: "No tienes permiso" }); return null; } return u; };
 app.get("/api/posts", async (req, res) => {
   const type = TYPES.includes(req.query.type) ? req.query.type : null, uid = sessionId(req) || 0;
-  const paged = req.query.page !== undefined, per = paged ? 12 : req.query.type === "story" ? 150 : 50, pg = Math.min(1000, Math.max(0, Number(req.query.page) || 0)); // con ?page= devuelve 12 (+1 para saber si hay siguiente)
+  const before = pid(req.query.before), foryou = req.query.type === "foryou"; // ?before=id: página siguiente sin OFFSET (no se repiten ni se saltan publicaciones)
+  const paged = req.query.page !== undefined || !!before, per = paged ? 12 : req.query.type === "story" ? 150 : 50, pg = Math.min(1000, Math.max(0, Number(req.query.page) || 0)); // con ?page= devuelve 12 (+1 para saber si hay siguiente)
   const where = [], wp = [], au = str(req.query.author);
   const bl = uid ? await sec.blockedIds(uid) : []; // no se muestran publicaciones de jugadores con bloqueo entre ambos
   if (bl.length) { where.push("p.author NOT IN (SELECT name FROM player WHERE id IN (?))"); wp.push(bl); }
@@ -39,9 +41,27 @@ app.get("/api/posts", async (req, res) => {
     const names = (await q("SELECT name FROM player WHERE id IN (?)", [[...(await friendIds(uid)), ...fol, uid]])).map((r) => r.name);
     where.push("p.author IN (?)"); wp.push(names);
   }
-  if (req.query.type === "feed") where.push("(p.type = 'post' OR (p.type = 'story' AND p.created_at > NOW() - INTERVAL 24 HOUR))"); else if (type) { where.push("p.type = ?"); wp.push(type); if (type === "story") where.push("p.created_at > NOW() - INTERVAL 24 HOUR"); } // las historias duran 24 h
+  if (before && !foryou) { where.push("p.id < ?"); wp.push(before); }
+  let order = "p.id DESC"; const op = []; // op: parámetros del ORDER BY (van después de los del WHERE)
+  if (foryou) { // «Para ti»: publicaciones públicas recientes ordenadas por interacción, con ventaja para amigos y seguidos; pierden fuerza con las horas
+    where.push("p.type = 'post' AND p.created_at > NOW() - INTERVAL 21 DAY");
+    const close = uid ? (await q("SELECT name FROM player WHERE id IN (?)", [[...fids, ...(await q("SELECT b FROM web_follows WHERE a = ?", [uid])).map((r) => r.b), 0]])).map((r) => r.name) : [];
+    order = `((SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) * 2 + (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) * 3 + ${close.length ? "IF(p.author IN (?), 6, 0)" : "0"} + 1) / POW(TIMESTAMPDIFF(HOUR, p.created_at, NOW()) + 2, 1.4) DESC, p.id DESC`;
+    if (close.length) op.push(close);
+  }
+  else if (req.query.type === "feed") where.push("(p.type = 'post' OR (p.type = 'story' AND p.created_at > NOW() - INTERVAL 24 HOUR))"); else if (type) { where.push("p.type = ?"); wp.push(type); if (type === "story") where.push("p.created_at > NOW() - INTERVAL 24 HOUR"); } // las historias duran 24 h
   if (/^\w{1,24}$/.test(au)) { where.push("p.author = ?"); wp.push(au); }
-  res.json(await attach(await q(`SELECT p.id, p.type, p.title, p.body, p.author, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, p.created_at, p.vis, p.share_id, p.edited_at, p.group_id, (SELECT g.name FROM web_groups g WHERE g.id = p.group_id) AS gname, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COALESCE(MAX(l.kind), 0) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine, (SELECT GROUP_CONCAT(DISTINCT l.kind ORDER BY l.kind) FROM web_likes l WHERE l.post_id = p.id) AS rk FROM web_posts p ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY p.id DESC LIMIT ? OFFSET ?`, [uid, ...wp, paged ? per + 1 : per, pg * per]), uid));
+  res.json(await attach(await q(`SELECT p.id, p.type, p.title, p.body, p.author, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, p.created_at, p.vis, p.share_id, p.edited_at, p.group_id, (SELECT g.name FROM web_groups g WHERE g.id = p.group_id) AS gname, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COALESCE(MAX(l.kind), 0) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine, (SELECT GROUP_CONCAT(DISTINCT l.kind ORDER BY l.kind) FROM web_likes l WHERE l.post_id = p.id) AS rk FROM web_posts p ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY ${order} LIMIT ? OFFSET ?`, [uid, ...wp, ...op, paged ? per + 1 : per, before && !foryou ? 0 : pg * per]), uid));
+});
+// Tendencias: las #etiquetas más usadas en publicaciones públicas de los últimos 7 días (se recalcula cada 5 minutos)
+let trends = { at: 0, d: [] };
+app.get("/api/trends", async (req, res) => {
+  if (Date.now() - trends.at > 300000) {
+    const n = new Map();
+    for (const r of await q("SELECT body FROM web_posts WHERE vis = 0 AND group_id IS NULL AND type IN ('post', 'reel') AND created_at > NOW() - INTERVAL 7 DAY AND body LIKE '%#%' ORDER BY id DESC LIMIT 2000")) for (const h of hashtags(r.body)) n.set(h, (n.get(h) || 0) + 1);
+    trends = { at: Date.now(), d: [...n].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([tag, c]) => ({ tag, n: c })) };
+  }
+  res.json(trends.d);
 });
 const canSee = async (id, uid) => {
   const p = (await q("SELECT author, vis, group_id FROM web_posts WHERE id = ?", [id]))[0]; if (!p) return false;
@@ -71,7 +91,7 @@ app.post("/api/posts", async (req, res) => {
   if (type === "reel") return res.status(400).json({ error: "Los reels se suben desde /reels" });
   if (type === "photo" && !/^https:\/\/[^\s"'<>]{4,500}$/.test(body)) return res.status(400).json({ error: "El enlace de la foto debe empezar con https://" });
   const ins = await q("INSERT INTO web_posts (type, title, body, author) VALUES (?, ?, ?, ?)", [type, title.slice(0, 120), body.slice(0, 4000), u.name]);
-  if (type === "news" || type === "update") try { await q("INSERT INTO web_notifs (player_id, actor_id, type, post_id, body) SELECT id, ?, ?, ?, ? FROM player WHERE id <> ? ORDER BY id DESC LIMIT ?", [u.id, type, ins.insertId, title.slice(0, 120), u.id, BCAST]); } catch (e) { console.log("[notif]", e.message); }
+  if (type === "news" || type === "update") try { await q("INSERT INTO web_notifs (player_id, actor_id, type, post_id, body) SELECT id, ?, ?, ?, ? FROM player WHERE id <> ? AND (connected = 1 OR last_connection > NOW() - INTERVAL 60 DAY) ORDER BY last_connection DESC LIMIT ?", [u.id, type, ins.insertId, title.slice(0, 120), u.id, BCAST]); vivo.pushAll(vivo.notifText(type, u.name, ins.insertId, title), u.id); } catch (e) { console.log("[notif]", e.message); } // solo jugadores activos: una noticia ya no escribe miles de avisos a cuentas abandonadas
   res.json({ ok: true });
 });
 app.put("/api/posts/:id", async (req, res) => {
@@ -99,6 +119,7 @@ app.delete("/api/posts/:id", async (req, res) => {
   const im = /^\/img\/(\d+)$/.exec(p?.body || "");
   if (im) await q("DELETE FROM web_images WHERE id = ?", [im[1]]);
   await removePosts([id]);
+  if (p.author !== u.name) await mod.log(u, "borrar publicación", `${p.type} ${id}`, `${p.author}: ${String(p.body || "").slice(0, 200)}`);
   res.json({ ok: true });
 });
 // ---- Muro: cualquier jugador con sesión publica; el perfil público de cada jugador ----
@@ -186,9 +207,24 @@ app.post("/api/photos", express.json({ limit: "1500kb" }), async (req, res) => {
   res.json({ ok: true });
 });
 app.get("/img/:id(\\d+)", async (req, res) => {
-  const r = (await q("SELECT mime, data FROM web_images WHERE id = ?", [req.params.id]))[0];
+  const id = pid(req.params.id);
+  // ¿es de un chat? Entonces solo la ven quien la envió y quien la recibió (o los miembros del chat de grupo)
+  const cm = (await q("SELECT a, b, room FROM web_msgs WHERE img = ? LIMIT 1", [id]))[0];
+  if (cm) {
+    const uid = sessionId(req);
+    const ok = uid && (cm.room ? (await q("SELECT 1 FROM web_room_members WHERE room_id = ? AND player_id = ?", [cm.room, uid])).length > 0 : Number(cm.a) === uid || Number(cm.b) === uid);
+    if (!ok) return res.status(404).end();
+  }
+  const r = (await q("SELECT mime, data FROM web_images WHERE id = ?", [id]))[0];
   if (!r) return res.status(404).end();
-  res.set({ "Content-Type": r.mime, "Cache-Control": "public, max-age=604800, immutable", "Content-Security-Policy": "default-src 'none'; sandbox", "Content-Disposition": "inline" }).send(r.data);
+  const size = r.data.length, head = { "Content-Type": r.mime, "Cache-Control": cm ? "private, max-age=604800, immutable" : "public, max-age=604800, immutable", "Content-Security-Policy": "default-src 'none'; sandbox", "Content-Disposition": "inline", "Accept-Ranges": "bytes" };
+  const rg = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || ""); // los audios en iPhone se piden por rangos
+  if (rg && (rg[1] || rg[2])) {
+    let a = rg[1] === "" ? Math.max(0, size - Number(rg[2])) : Number(rg[1]), b = rg[1] !== "" && rg[2] ? Math.min(size - 1, Number(rg[2])) : size - 1;
+    if (a > b || a >= size) return res.status(416).set("Content-Range", `bytes */${size}`).end();
+    return res.status(206).set({ ...head, "Content-Range": `bytes ${a}-${b}/${size}` }).send(r.data.subarray(a, b + 1));
+  }
+  res.set(head).send(r.data);
 });
 // Me gusta y comentarios (hay que haber iniciado sesión)
 app.post("/api/posts/:id/like", async (req, res) => {
@@ -230,7 +266,9 @@ app.post("/api/posts/:id/comments", async (req, res) => {
 });
 app.delete("/api/posts/:id/comments/:cid", async (req, res) => {
   const u = await me(req); if (!u) return res.status(401).json({ error: "Inicia sesión" });
+  const old = (await q("SELECT player_id, author, body FROM web_comments WHERE id = ? AND post_id = ?", [pid(req.params.cid), pid(req.params.id)]))[0];
   const del = await q("DELETE FROM web_comments WHERE id = ? AND post_id = ? AND (player_id = ? OR ? >= ?)", [pid(req.params.cid), pid(req.params.id), u.id, u.admin_level, MIN_POST]);
+  if (del.affectedRows && old && String(old.player_id) !== String(u.id)) await mod.log(u, "borrar comentario", `publicación ${pid(req.params.id)}`, `${old.author}: ${old.body}`);
   if (del.affectedRows) { // sin el comentario, sus respuestas quedarían huérfanas (contadas pero invisibles)
     const kids = (await q("SELECT id FROM web_comments WHERE parent = ?", [pid(req.params.cid)])).map((r) => r.id);
     await q("DELETE FROM web_clikes WHERE comment_id IN (?)", [[pid(req.params.cid), ...kids]]);
@@ -285,7 +323,7 @@ async function tNext() {
   const [postId, mediaId] = tq.shift(), dir = await require("fs/promises").mkdtemp(path.join(os.tmpdir(), "reel-"));
   try {
     const m = (await q("SELECT owner, mime, size, thumb FROM web_media WHERE id = ?", [mediaId]))[0]; if (!m) return;
-    const rows = await q("SELECT data FROM web_media_chunks WHERE media_id = ? ORDER BY n", [mediaId]), src = Buffer.concat(rows.map((r) => r.data));
+    const src = await mediaRead(mediaId);
     const d = (m.mime === "video/webm" ? webmDur(src) : mp4Dur(src)) || 1, kbps = (src.length * 8) / d / 1000;
     if (m.mime === "video/mp4" && kbps <= REEL_KBPS) return; // ya es liviano
     const fin = path.join(dir, "in"), fout = path.join(dir, "out.mp4"); await require("fs/promises").writeFile(fin, src);
@@ -299,9 +337,10 @@ async function tNext() {
     if (!out.length || out.length >= src.length * 0.95 && m.mime === "video/mp4") return; // no ganó nada
     if (!(await q("SELECT 1 FROM web_post_media WHERE post_id = ? AND media_id = ?", [postId, mediaId])).length) return; // lo borraron mientras tanto
     const r = await q("INSERT INTO web_media (owner, kind, mime, size, thumb) VALUES (?, 'rel', 'video/mp4', ?, ?)", [m.owner, out.length, m.thumb]);
-    try { for (let n = 0, o = 0; o < out.length; n++, o += CH) await q("INSERT INTO web_media_chunks (media_id, n, data) VALUES (?, ?, ?)", [r.insertId, n, out.subarray(o, o + CH)]); }
+    try { await mediaWrite(r.insertId, out); }
     catch (e) { await delMedia([r.insertId]); throw e; }
     const up = await q("UPDATE web_post_media SET media_id = ? WHERE post_id = ? AND media_id = ?", [r.insertId, postId, mediaId]);
+    if (up.affectedRows) swapped.set(Number(mediaId), postId), setTimeout(() => swapped.delete(Number(mediaId)), 31 * 60000).unref();
     if (up.affectedRows) setTimeout(() => delMedia([mediaId]).catch(() => {}), 30 * 60000).unref(); // el original se borra en 30 min: quien lo esté viendo no se corta
     else await delMedia([r.insertId]);
     console.log(`[reel] ${postId}: ${Math.round(src.length / 1024)} KB → ${Math.round(out.length / 1024)} KB`);
@@ -317,7 +356,43 @@ function webmDur(b) { // duración en segundos leyendo Duration y TimecodeScale 
     return d == null ? null : (d * sc) / 1e9;
   } catch { return null; }
 }
-const delMedia = async (ids) => { ids = ids.filter(Boolean); if (!ids.length) return; mcDrop(ids); ids.forEach((i) => mediaMeta.delete(Number(i))); await q("DELETE FROM web_media_chunks WHERE media_id IN (?)", [ids]); await q("DELETE FROM web_media WHERE id IN (?)", [ids]); };
+// Dónde se guardan los medios: con MEDIA_DIR en el .env van a esa carpeta del servidor (recomendado); sin ella, a la base de datos en trozos.
+const fs = require("fs"), fsp = require("fs/promises");
+const MEDIA_DIR = E.MEDIA_DIR ? path.resolve(E.MEDIA_DIR) : "";
+if (MEDIA_DIR) { try { fs.mkdirSync(MEDIA_DIR, { recursive: true }); console.log("[medios] se guardan en", MEDIA_DIR); } catch (e) { console.log("[medios] no pude crear MEDIA_DIR:", e.message); } }
+const mfile = (id) => path.join(MEDIA_DIR || ".", String(Math.floor(Number(id) / 1000)), String(Number(id))); // 1000 archivos por subcarpeta
+async function mediaWrite(id, buf) {
+  if (MEDIA_DIR) { await fsp.mkdir(path.dirname(mfile(id)), { recursive: true }); await fsp.writeFile(mfile(id), buf); await q("UPDATE web_media SET disk = 1 WHERE id = ?", [id]); return; }
+  for (let n = 0, o = 0; o < buf.length; n++, o += CH) await q("INSERT INTO web_media_chunks (media_id, n, data) VALUES (?, ?, ?)", [id, n, buf.subarray(o, o + CH)]);
+}
+async function mediaRead(id) { // el archivo entero (solo para convertir reels)
+  if (Number(((await q("SELECT disk FROM web_media WHERE id = ?", [id]))[0] || {}).disk)) return fsp.readFile(mfile(id));
+  return Buffer.concat((await q("SELECT data FROM web_media_chunks WHERE media_id = ? ORDER BY n", [id])).map((r) => r.data));
+}
+const delMedia = async (ids) => { ids = ids.filter(Boolean); if (!ids.length) return; mcDrop(ids); ids.forEach((i) => { mediaMeta.delete(Number(i)); for (const k of acl.keys()) if (k.endsWith(":" + i)) acl.delete(k); });
+  for (const r of await q("SELECT id FROM web_media WHERE id IN (?) AND disk = 1", [ids])) await fsp.unlink(mfile(r.id)).catch(() => {});
+  await q("DELETE FROM web_media_chunks WHERE media_id IN (?)", [ids]); await q("DELETE FROM web_media WHERE id IN (?)", [ids]); };
+// ¿Quién puede ver un medio? Lo que su publicación permita: "public", "private" (solo quien la puede ver) o null (nadie / no existe).
+const swapped = new Map(), acl = new Map(); // original de un reel recién convertido → su publicación · caché de permisos (1 minuto)
+async function mediaAccess(id, uid) {
+  const now = Date.now(), hit0 = acl.get("0:" + id), hit1 = uid ? acl.get(uid + ":" + id) : null;
+  if (hit0 && hit0.t > now) return "public";
+  if (hit1 && hit1.t > now) return hit1.v;
+  let post = ((await q("SELECT post_id FROM web_post_media WHERE media_id = ? LIMIT 1", [id]))[0] || {}).post_id
+    || ((await q("SELECT pm.post_id FROM web_media v JOIN web_post_media pm ON pm.media_id = v.id WHERE v.thumb = ? LIMIT 1", [id]))[0] || {}).post_id || swapped.get(id);
+  let v = null;
+  if (!post) { // recién subido y aún sin publicar: solo su dueño
+    const m = (await q("SELECT owner FROM web_media WHERE id = ?", [id]))[0];
+    v = m && uid && Number(m.owner) === Number(uid) ? "private" : null;
+  } else {
+    const p = (await q("SELECT p.vis, p.group_id, (SELECT g.priv FROM web_groups g WHERE g.id = p.group_id) AS gpriv FROM web_posts p WHERE p.id = ?", [post]))[0];
+    if (p && Number(p.vis) === 0 && !Number(p.gpriv)) v = "public";
+    else if (p && (await canSee(post, uid || 0))) v = "private";
+  }
+  if (acl.size > 20000) acl.clear();
+  if (v === "public") acl.set("0:" + id, { t: now + 60000 }); else if (uid) acl.set(uid + ":" + id, { v, t: now + 60000 });
+  return v;
+}
 async function removePosts(ids) { // borra publicaciones con sus me gusta, comentarios, etiquetas y medios
   if (!ids.length) return;
   const ms = await q("SELECT m.id, m.thumb FROM web_post_media pm JOIN web_media m ON m.id = pm.media_id WHERE pm.post_id IN (?)", [ids]);
@@ -371,7 +446,7 @@ app.post("/api/media", express.raw({ type: () => true, limit: Math.max(VID_MAX, 
     if (!thumb || !(await q("SELECT id FROM web_media WHERE id = ? AND owner = ? AND kind = 'img'", [thumb, u.id])).length) return res.status(400).json({ error: "Falta la miniatura del video" });
   }
   const r = await q("INSERT INTO web_media (owner, kind, mime, size, thumb) VALUES (?, ?, ?, ?, ?)", [u.id, kind, mime, buf.length, thumb]);
-  try { for (let n = 0, o = 0; o < buf.length; n++, o += CH) await q("INSERT INTO web_media_chunks (media_id, n, data) VALUES (?, ?, ?)", [r.insertId, n, buf.subarray(o, o + CH)]); }
+  try { await mediaWrite(r.insertId, buf); }
   catch (e) { await delMedia([r.insertId]); throw e; }
   res.json({ id: r.insertId, kind });
 });
@@ -390,9 +465,11 @@ async function chunks(id, a, b) { // trozos a..b de un medio, desde la caché o 
 app.get("/media/:id(\\d+)", async (req, res) => {
   const id = Number(req.params.id);
   let m = mediaMeta.get(id);
-  if (!m) { m = (await q("SELECT mime, size FROM web_media WHERE id = ?", [id]))[0]; if (!m) return res.status(404).end(); if (mediaMeta.size > 5000) mediaMeta.clear(); mediaMeta.set(id, m); }
+  if (!m) { m = (await q("SELECT mime, size, disk FROM web_media WHERE id = ?", [id]))[0]; if (!m) return res.status(404).end(); if (mediaMeta.size > 5000) mediaMeta.clear(); mediaMeta.set(id, m); }
+  const who = await mediaAccess(id, sessionId(req)); // respeta la privacidad de la publicación (amigos / solo yo / grupo privado / bloqueos)
+  if (!who) return res.status(404).end();
   const size = Number(m.size), etag = `"m${id}-${size}"`; let s = 0, e = size - 1, part = false;
-  const head = { "Content-Type": m.mime, "Accept-Ranges": "bytes", "Cache-Control": "public, max-age=31536000, immutable", ETag: etag }; // un id nunca cambia de contenido
+  const head = { "Content-Type": m.mime, "Accept-Ranges": "bytes", "Cache-Control": who === "public" ? "public, max-age=31536000, immutable" : "private, max-age=3600", ETag: etag }; // un id nunca cambia de contenido
   if (req.headers["if-none-match"] === etag) return res.status(304).set(head).end();
   const rg = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || "");
   if (rg && (rg[1] || rg[2])) {
@@ -403,6 +480,11 @@ app.get("/media/:id(\\d+)", async (req, res) => {
   }
   res.status(part ? 206 : 200).set({ ...head, "Content-Length": e - s + 1, ...(part ? { "Content-Range": `bytes ${s}-${e}/${size}` } : {}) });
   if (req.method === "HEAD") return res.end();
+  if (Number(m.disk)) { // archivo en MEDIA_DIR: se envía directo desde el disco
+    const st = fs.createReadStream(mfile(id), { start: s, end: e });
+    st.on("error", (err) => { console.log("[media]", err.message); res.destroy(); });
+    return st.pipe(res);
+  }
   // se envía por tandas de 1 MB: un archivo grande sin Range no se carga entero en memoria
   try {
     for (let a = Math.floor(s / CH), last = Math.floor(e / CH); a <= last && !res.destroyed; a += 4) {
@@ -461,7 +543,12 @@ app.post("/api/posts/:id/save", async (req, res) => { // guardar / quitar de gua
 app.get("/api/user/:name/photos", async (req, res) => { // fotos de las publicaciones de un jugador (pestaña Fotos del perfil)
   const n = str(req.params.name);
   if (!/^\w{1,24}$/.test(n)) return res.json([]);
-  res.json(await q("SELECT pm.post_id, m.id FROM web_posts p JOIN web_post_media pm ON pm.post_id = p.id JOIN web_media m ON m.id = pm.media_id WHERE p.author = ? AND p.type = 'post' AND m.kind = 'img' ORDER BY p.id DESC, pm.pos LIMIT 60", [n]));
+  // solo fotos de publicaciones que quien mira puede ver: públicas; las de «amigos» si son amigos; todas si es su propio perfil
+  const uid = sessionId(req) || 0, o = (await q("SELECT id FROM player WHERE name = ?", [n]))[0]; if (!o) return res.json([]);
+  if (uid && Number(o.id) !== uid && (await sec.isBlocked(uid, o.id))) return res.json([]);
+  const lvl = Number(o.id) === uid ? 2 : uid && (await friendIds(uid)).map(Number).includes(Number(o.id)) ? 1 : 0;
+  if (lvl < 1 && Number((await sec.getSettings(o.id)).prof) === 1) return res.json([]); // perfil solo para amigos
+  res.json(await q("SELECT pm.post_id, m.id FROM web_posts p JOIN web_post_media pm ON pm.post_id = p.id JOIN web_media m ON m.id = pm.media_id WHERE p.author = ? AND p.type = 'post' AND p.group_id IS NULL AND p.vis <= ? AND m.kind = 'img' ORDER BY p.id DESC, pm.pos LIMIT 60", [n, lvl]));
 });
 // ---- Buscar jugadores para etiquetar (solo nombre y skin) ----
 app.get("/api/users/search", async (req, res) => {
@@ -472,5 +559,5 @@ app.get("/api/users/search", async (req, res) => {
   res.json(await q(`SELECT name, ${SKIN_COL} AS skin FROM player WHERE name LIKE ? ${bl.length ? "AND id NOT IN (?)" : ""} ORDER BY connected DESC, name LIMIT 8`, [`%${v}%`, ...(bl.length ? [bl] : [])]));
 });
 
-return { STORY_LIVE, FFMPEG, attach, cleanup, canSee };
+return { STORY_LIVE, FFMPEG, attach, cleanup, canSee, removePosts };
 };

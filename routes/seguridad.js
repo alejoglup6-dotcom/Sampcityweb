@@ -1,5 +1,5 @@
 // Configuración de la cuenta, privacidad, bloqueos y reportes. Devuelve ayudas que usan los demás módulos.
-module.exports = (app, { crypto, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, checkPassword, setSession, LOGOUT }) => {
+module.exports = (app, { crypto, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, checkPassword, setSession, LOGOUT, mod }) => {
 const NAME = /^\w{1,24}$/;
 const DEF = { msg: 0, prof: 0, tag: 0, nmask: 0 }; // msg/tag: 0 todos, 1 amigos, 2 nadie · prof: 0 público, 1 amigos · nmask: avisos silenciados (bits)
 const NBIT = { like: 1, comment: 2, reply: 2, mention: 4, mention_c: 4, tag: 4, friend_req: 8, friend_acc: 8, news: 16, update: 16 };
@@ -13,6 +13,14 @@ const muted = async (to, type, actorId) => { try { if (await isBlocked(to, actor
 const loadLogout = async () => { try { for (const r of await q("SELECT player_id, logout_at FROM web_settings WHERE logout_at > 0")) LOGOUT.set(Number(r.player_id), Number(r.logout_at)); } catch {} };
 setInterval(loadLogout, 60000).unref();
 
+// Cierra todas las sesiones del jugador y abre una nueva solo en este dispositivo
+async function closeOthers(req, res, uid) {
+  const at = Date.now() - 1;
+  await q("INSERT INTO web_settings (player_id, logout_at) VALUES (?, ?) ON DUPLICATE KEY UPDATE logout_at = VALUES(logout_at)", [uid, at]);
+  LOGOUT.set(Number(uid), at);
+  await q("DELETE FROM web_sessions WHERE player_id = ?", [uid]).catch(() => {});
+  setSession(res, uid, "", req);
+}
 app.get("/api/settings", async (req, res) => {
   const u = await me(req); if (!u) return res.status(401).json({ error: "Inicia sesión" });
   const [s, bl] = await Promise.all([getSettings(u.id), q(`SELECT p.name, p.${SKIN_COL} AS skin FROM web_blocks b JOIN player p ON p.id = b.b WHERE b.a = ? ORDER BY b.created_at DESC LIMIT 200`, [u.id])]);
@@ -31,18 +39,17 @@ app.post("/api/settings/password", async (req, res) => {
   const u = await me(req); if (!u) return res.status(401).json({ error: "Inicia sesión" });
   if (!hit("pw|" + u.id, 5, 900000)) return res.status(429).json({ error: "Demasiados intentos. Espera 15 minutos." });
   const cur = str(req.body.current).slice(0, 72).replace(/%/g, "#"), nu = str(req.body.next).replace(/%/g, "#"); // el juego cambia % por #
-  if (nu.length < 6 || nu.length > 24) return res.status(400).json({ error: "La contraseña nueva debe tener entre 6 y 24 caracteres" });
+  if (nu.length < 6 || nu.length > 18) return res.status(400).json({ error: "La contraseña nueva debe tener entre 6 y 18 caracteres" }); // el mismo límite que el registro y el juego
   const r = (await q("SELECT salt, pass FROM player WHERE id = ?", [u.id]))[0];
   if (!r || !r.pass || !(await checkPassword(cur, r.salt, r.pass))) return res.status(403).json({ error: "La contraseña actual no es correcta" });
   const salt = crypto.randomBytes(12).toString("base64").replace(/[^A-Za-z0-9]/g, "").slice(0, 15).padEnd(15, "x");
   await q("UPDATE player SET salt = ?, pass = ? WHERE id = ?", [salt, crypto.createHash("sha256").update(nu + salt).digest("hex").toUpperCase(), u.id]);
+  await closeOthers(req, res, u.id); // quien tuviera la contraseña vieja queda fuera; este dispositivo sigue dentro
   res.json({ ok: true });
 });
 app.post("/api/settings/logout-all", async (req, res) => {
   const u = await me(req); if (!u) return res.status(401).json({ error: "Inicia sesión" });
-  const at = Date.now() - 1;
-  await q("INSERT INTO web_settings (player_id, logout_at) VALUES (?, ?) ON DUPLICATE KEY UPDATE logout_at = VALUES(logout_at)", [u.id, at]);
-  LOGOUT.set(Number(u.id), at); setSession(res, u.id); // este dispositivo sigue con una sesión nueva
+  await closeOthers(req, res, u.id);
   res.json({ ok: true });
 });
 
@@ -93,8 +100,10 @@ app.get("/api/reports", async (req, res) => {
   res.json(rows);
 });
 app.post("/api/reports/:id(\\d+)/close", async (req, res) => {
-  if (!(await staff(req, res))) return;
+  const st = await staff(req, res); if (!st) return;
+  const rp = (await q("SELECT kind, target, reason FROM web_reports WHERE id = ?", [pid(req.params.id)]))[0];
   await q("UPDATE web_reports SET status = 1 WHERE id = ?", [pid(req.params.id)]);
+  if (rp && mod) await mod.log(st, "resolver reporte", `${rp.kind} ${rp.target}`, rp.reason);
   res.json({ ok: true });
 });
 return { getSettings, blockedIds, isBlocked, muted, loadLogout };
