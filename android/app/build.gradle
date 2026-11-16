@@ -1,0 +1,54 @@
+// App Android de SampCity: una Trusted Web Activity (TWA). Abre la web en pantalla completa con Chrome, sin barra de direcciones,
+// con el mismo inicio de sesión, notificaciones push y permisos (micrófono, cámara, archivos) que la web.
+// Dominio: -PWEB_HOST=otro.dominio (por defecto sampcity.app). Versión: súbela en cada APK nuevo (versionCode siempre mayor).
+plugins { id 'com.android.application' }
+
+def webHost = (project.findProperty('WEB_HOST') ?: 'sampcity.app').toString()
+def ksFile = rootProject.file('keystore.properties')
+def ks = new Properties()
+if (ksFile.exists()) ksFile.withInputStream { ks.load(it) }
+
+android {
+    namespace 'com.sampcity.social'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.sampcity.social'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+        resValue 'string', 'host', webHost
+        resValue 'string', 'default_url', "https://${webHost}/"
+        // Digital Asset Links: la app declara que la web le pertenece (la web lo confirma en /.well-known/assetlinks.json)
+        resValue 'string', 'asset_statements', ('[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"web","site":"https://' + webHost + '"}}]').replace('"', '\\"')
+    }
+
+    signingConfigs {
+        release {
+            if (ksFile.exists()) {
+                storeFile rootProject.file(ks['storeFile'])
+                storePassword ks['storePassword']
+                keyAlias ks['keyAlias']
+                keyPassword ks['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig ksFile.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    lint { abortOnError false }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

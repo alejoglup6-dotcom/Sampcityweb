@@ -1,0 +1,31 @@
+name: APK de Android
+# Se ejecuta a mano (Actions → APK de Android → Run workflow). Necesita estos «secrets» del repositorio:
+#   ANDROID_KEYSTORE_BASE64   la llave android/keystore/sampcity-release.jks en base64 (base64 -w0 archivo.jks)
+#   ANDROID_KEYSTORE_PASSWORD la contraseña (la misma para el almacén y la llave)
+on:
+  workflow_dispatch:
+    inputs:
+      host: { description: "Dominio de la web", default: "sampcity.app" }
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: android-actions/setup-android@v3
+      - name: Llave de firma
+        working-directory: android
+        run: |
+          mkdir -p keystore
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > keystore/sampcity-release.jks
+          printf 'storeFile=keystore/sampcity-release.jks\nstorePassword=%s\nkeyAlias=sampcity\nkeyPassword=%s\n' "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" > keystore.properties
+      - name: Compilar
+        working-directory: android
+        run: ./build.sh "${{ inputs.host }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SampCity-App
+          path: |
+            public/downloads/SampCity-App.apk
+            data/app.json

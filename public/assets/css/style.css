@@ -763,3 +763,8 @@ button[id^="l"][onclick^="like("]{user-select:none;-webkit-user-select:none;-web
 .chas[hidden]{display:none}
 .chb:has(.chau){min-width:min(19.5rem,80vw)}
 @media(prefers-reduced-motion:reduce){.chrd{animation:none}.chrv i{transition:none}}
+
+/* ---- Página /app ---- */
+.aph{display:flex;gap:1rem;align-items:center;flex-wrap:wrap}.aph img{border-radius:22%;flex:none;box-shadow:0 2px 12px rgba(0,0,0,.4)}.aph>div{flex:1;min-width:14rem;display:grid;gap:.5rem;justify-items:start}.aph h3{margin:0}
+.apb{display:inline-flex;align-items:center;gap:.5rem;text-decoration:none;font-size:1.05rem;padding:.7rem 1.4rem}.apb[hidden]{display:none}
+.aps{padding-left:1.3rem;display:grid;gap:.5rem}.apl{padding-left:1.2rem;display:grid;gap:.25rem;margin-bottom:.5rem}.apw details summary{cursor:pointer;font-weight:600}

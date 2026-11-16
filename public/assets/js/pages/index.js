@@ -32,6 +32,7 @@ ${INFO.turnstile?'<div id="hcft" style="margin:.4rem 0"></div>':""}<div class="m
 <button class="btn p fbb" id="hb2">${t("Iniciar sesión")}</button>
 <a class="fbq" href="${INFO.mail?"/recuperar":DISCORD}"${INFO.mail?"":' target="_blank" rel="noopener"'}>${t("¿Has olvidado tu contraseña?")}</a>
 <button class="btn fbn" type="button" data-on-click="registro()">${t("Crear cuenta nueva")}</button>
+${STANDALONE?"":`<a class="fbq" href="/app">${ic("jugar")} ${t("Descargar app")}</a>`}
 <img class="fbz" src="/assets/logo.png" alt="SampCity"></div>`}
 function bindLanding(){const n=$("#hn"),p=$("#hp"),b=$("#hb2");if(!n||!b)return;
  const go=async()=>{if(!need(n,n.value.trim().length>=3,t("Escribe tu nombre (mínimo 3 letras)"),"#hm")||!need(p,p.value.length>0,t("Escribe tu contraseña"),"#hm"))return;

@@ -17,3 +17,6 @@ cgi-bin/
 .well-known/
 node_modules/
 node_modules/ffmpeg-static/ffmpeg
+
+# La llave de firma del APK nunca se sube (el .gitignore de android/ la excluye).
+!test/esquema-juego.sql
