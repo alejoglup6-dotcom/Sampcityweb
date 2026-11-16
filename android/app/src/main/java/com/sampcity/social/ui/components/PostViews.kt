@@ -372,13 +372,14 @@ fun PostCard(p: Post, h: PostHost, modifier: Modifier = Modifier, detail: Boolea
             IconButton({ h.menu = p }) { Icon(Icons.Filled.MoreHoriz, "Opciones") }
         }
         if (p.title.isNotBlank()) Text(p.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp))
-        if (p.body.isNotBlank()) {
+        if (p.type == "photo" && p.body.isNotBlank()) AsyncImage(SampApp.instance.api.imgUrl(p.body), null, contentScale = ContentScale.FillWidth, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        else if (p.body.isNotBlank()) {
             RichText(p.body, Modifier.padding(horizontal = 14.dp, vertical = 8.dp).let { if (detail) it else it.clickable { nav.post(p.id) } }, style = MaterialTheme.typography.bodyLarge, maxLines = if (detail) Int.MAX_VALUE else 14)
             val url = if (p.media.isEmpty() && p.shared == null) Regex("https://[^\\s<>\"']{4,490}").find(p.body)?.value else null
             if (url != null) LinkPreview(url, Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
         }
         p.poll?.let { PollView(p, h, Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) }
-        if (p.media.isNotEmpty()) MediaGrid(p.media, Modifier.padding(top = 6.dp)) { i -> h.viewer = p.media to i }
+        if (p.media.isNotEmpty()) MediaGrid(p.media, Modifier.padding(top = 6.dp)) { i -> if (p.media[i].isVideo) nav.reels(start = p.id) else h.viewer = p.media to i }
         p.shared?.let { SharedCard(it, Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) }
         // resumen
         if (p.likes > 0 || p.comments > 0) Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -389,6 +390,7 @@ fun PostCard(p: Post, h: PostHost, modifier: Modifier = Modifier, detail: Boolea
             Spacer(Modifier.weight(1f))
             if (p.comments > 0) Text("${count(p.comments)} comentario${if (p.comments == 1) "" else "s"}", style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, modifier = Modifier.clickable { nav.post(p.id) })
         }
+        if (p.type == "rules" || p.type == "faq") return@Column
         HorizontalDivider(Modifier.padding(horizontal = 14.dp), color = c.outlineVariant)
         Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
             ReactionButton(p, h, Modifier.weight(1f))

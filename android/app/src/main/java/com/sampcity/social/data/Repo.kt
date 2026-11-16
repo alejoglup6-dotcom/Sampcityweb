@@ -108,10 +108,13 @@ class Repo(val api: Api) {
     suspend fun market(cat: String, sort: String, q: String, mine: Boolean, page: Int): List<MarketItem> =
         api.get("/market?page=$page" + (if (cat.isNotEmpty()) "&cat=$cat" else "") + (if (sort.isNotEmpty()) "&sort=$sort" else "") + (if (q.isNotBlank()) "&q=${enc(q)}" else "") + (if (mine) "&mine=1" else ""))
     suspend fun createListing(cat: String, title: String, price: Long, body: String, dataUrl: String?): Created = api.post("/market", obj("cat" to cat, "title" to title, "price" to price, "body" to body, "data" to dataUrl))
+    suspend fun editListing(id: Int, cat: String, title: String, price: Long, body: String) { api.send("PUT", "/market/$id", obj("cat" to cat, "title" to title, "price" to price, "body" to body)) }
     suspend fun toggleSold(id: Int) { api.send("POST", "/market/$id/sold") }
     suspend fun deleteListing(id: Int) { api.send("DELETE", "/market/$id") }
 
     // ---- Contenido del staff, ranking ----
+    suspend fun createStaffPost(type: String, title: String, body: String) { api.send("POST", "/posts", obj("type" to type, "title" to title, "body" to body)) }
+    suspend fun editStaffPost(id: Int, title: String, body: String) { api.send("PUT", "/posts/$id", obj("title" to title, "body" to body)) }
     suspend fun staff(): List<StaffMember> = api.get("/staff")
     suspend fun top(by: String): List<TopEntry> = api.get("/top?by=$by")
 
