@@ -110,7 +110,7 @@ let n = 0; const ok = (c, m) => { assert.ok(c, m); n++; }, eq = (a, b, m) => { a
   // --- varios ---
   eq((await anon.get("/stream")).st, 401); eq((await anon.get("/preview?u=" + encodeURIComponent("https://127.0.0.1/"))).d, {}, "vista previa no consulta direcciones internas");
   eq((await anon.post("/recover", { name: A.name })).st, 503, "sin SMTP la recuperación avisa");
-  const pg = await anon.raw("GET", "/"); ok(/script-src-elem/.test(pg.headers.get("content-security-policy")));
+  const pg = await anon.raw("GET", "/"); const csp = pg.headers.get("content-security-policy"); ok(/script-src-attr 'none'/.test(csp) && !/script-src [^;]*'unsafe-inline'/.test(csp), "CSP sin scripts ni eventos en línea");
   await db.end();
   console.log(`OK: ${n} comprobaciones`);
-})().catch((e) => { console.error("FALLÓ:", e.message, "\n", e.stack.split("\n").slice(1, 4).join("\n")); process.exit(1); });
+})().catch((e) => { console.error("FALLÓ:", e.message, "\n", e.stack.split("\n").filter((l) => /smoke\.js/.test(l)).slice(0, 3).join("\n")); process.exit(1); });

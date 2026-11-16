@@ -176,7 +176,7 @@ const gdBadge = (e) => `<span class="gd-k gd-k-${e.k}">${ic(GD_KIND[e.k]?.[1] ||
 function gdDetail(e) {
   let h = "";
   if (e.k === "comando") {
-    h += `<div class="gd-use"><code>${esc(e.b || e.t)}</code><button class="btn s" type="button" onclick="gdCopy(this,'${esc((e.b || e.t).replace(/'/g, ""))}')">${ic("copiar_ip")} ${t("Copiar")}</button></div>`;
+    h += `<div class="gd-use"><code>${esc(e.b || e.t)}</code><button class="btn s" type="button" data-on-click="gdCopy(this,'${esc((e.b || e.t).replace(/'/g, ""))}')">${ic("copiar_ip")} ${t("Copiar")}</button></div>`;
     if (e.g) h += `<p class="m">${t("También")}: ${esc(e.g)}</p>`;
     if (e.st > 0) h += `<p class="m">${t("Solo staff desde")} ${esc(RANGOS[e.st] || "nivel " + e.st)}.</p>`;
     if (!e.s) h += `<p class="m">${t("Este comando aún no tiene descripción.")}</p>`;
@@ -185,26 +185,26 @@ function gdDetail(e) {
   const rel = gdSearch(e.c || e.t).filter((x) => x !== e).slice(0, 4);
   const arts = (e.r || []).map((slug) => GD.data.entries.find((x) => x.k === "guia" && x.id === slug)).filter(Boolean);
   const list = [...arts, ...rel.filter((x) => !arts.includes(x))].slice(0, 6);
-  if (list.length) h += `<div class="gd-rel"><b>${t("Relacionado")}</b>${list.map((x) => `<a href="?ver=${encodeURIComponent(gdKey(x))}" onclick="return gdOpen('${esc(gdKey(x))}')">${esc(x.t)}</a>`).join("")}</div>`;
+  if (list.length) h += `<div class="gd-rel"><b>${t("Relacionado")}</b>${list.map((x) => `<a href="?ver=${encodeURIComponent(gdKey(x))}" data-on-click="return gdOpen('${esc(gdKey(x))}')">${esc(x.t)}</a>`).join("")}</div>`;
   return h;
 }
 
 function gdCard(e) {
   const k = gdKey(e), open = GD.open === k;
-  return `<article class="card gd-r${open ? " on" : ""}" id="gd-${esc(k.replace(/[^\w-]/g, "_"))}"><button class="gd-h" type="button" aria-expanded="${open}" onclick="gdToggle('${esc(k)}')">
+  return `<article class="card gd-r${open ? " on" : ""}" id="gd-${esc(k.replace(/[^\w-]/g, "_"))}"><button class="gd-h" type="button" aria-expanded="${open}" data-on-click="gdToggle('${esc(k)}')">
     ${gdBadge(e)}<span class="gd-t${e.k === "comando" ? " gd-cmd" : ""}">${esc(e.t)}</span>${e.c && e.k !== "comando" ? `<span class="tag">${esc(e.c)}</span>` : ""}
     <span class="gd-s">${esc(e.s || (e.k === "comando" ? e.c : ""))}${e.z && e.k !== "guia" ? ` · ${esc(e.z)}` : ""}</span></button>
     ${open ? `<div class="gd-d">${gdDetail(e)}</div>` : ""}</article>`;
 }
 
-function gdChips(list, cls = "") { return list.map((s) => `<button class="chip${cls}" type="button" onclick="gdSet(${esc(JSON.stringify(s))})">${esc(s)}</button>`).join(""); }
+function gdChips(list, cls = "") { return list.map((s) => `<button class="chip${cls}" type="button" data-on-click="gdSet(${esc(JSON.stringify(s))})">${esc(s)}</button>`).join(""); }
 
 function gdResultsHtml() {
   const q = GD.q.trim();
   if (!q) return gdHome();
   const res = gdSearch(q), top = GD.lastTop, dym = gdDidYouMean(q), rel = gdRelated(q, res);
   let h = "";
-  if (dym && (!res.length || (gdSearch(dym).length && GD.lastTop > top * 1.3))) h += `<p class="gd-dym">${t("Quizás quisiste decir")}: <a href="?q=${encodeURIComponent(dym)}" onclick="return gdSet(${esc(JSON.stringify(dym))})"><b>${esc(dym)}</b></a></p>`;
+  if (dym && (!res.length || (gdSearch(dym).length && GD.lastTop > top * 1.3))) h += `<p class="gd-dym">${t("Quizás quisiste decir")}: <a href="?q=${encodeURIComponent(dym)}" data-on-click="return gdSet(${esc(JSON.stringify(dym))})"><b>${esc(dym)}</b></a></p>`;
   if (!res.length) {
     h += `<div class="card gd-none"><h3>${t("No encontramos")} «${esc(q)}»</h3><p class="m">${t("Prueba con otra palabra, más corta o sin el comando completo. Lo que no encuentra nadie se lo pasamos al staff para añadirlo.")}</p>
       ${rel.length ? `<p><b>${t("Prueba con")}</b></p><div class="gd-chips">${gdChips(rel)}</div>` : ""}
@@ -228,8 +228,8 @@ function gdHome() {
   const arts = GD.data.entries.filter((e) => e.k === "guia");
   const cats = [["Empezar", "como-empezar", "jugar"], ["Teclas", "teclas", "mas"], ["Dinero", "ganar-dinero", "dinero"], ["Vehículos", "vehiculos", "marketplace"], ["Negocios", "negocios", "marketplace"], ["Rol", "rol", "comunidad"], ["Facciones", "facciones", "staff_equipo"], ["Ayuda", "ayuda-soporte", "faq"]];
   const count = (k) => GD.data.entries.filter((e) => e.k === k && (GD.staff || !gdIsStaff(e))).length;
-  return `<div class="gd-cats">${cats.map(([n, slug, i]) => `<button class="card" type="button" onclick="gdOpen('guia:${slug}')">${ic(i)}<b>${t(n)}</b></button>`).join("")}</div>
-    <div class="gd-cats gd-kinds">${["comando", "trabajo", "lugar", "faccion", "negocio"].map((k) => `<button class="card" type="button" onclick="gdKind('${k}',1)">${ic(GD_KIND[k][1])}<b>${t(GD_PLURAL[k])}</b><small class="m">${count(k)}</small></button>`).join("")}</div>
+  return `<div class="gd-cats">${cats.map(([n, slug, i]) => `<button class="card" type="button" data-on-click="gdOpen('guia:${slug}')">${ic(i)}<b>${t(n)}</b></button>`).join("")}</div>
+    <div class="gd-cats gd-kinds">${["comando", "trabajo", "lugar", "faccion", "negocio"].map((k) => `<button class="card" type="button" data-on-click="gdKind('${k}',1)">${ic(GD_KIND[k][1])}<b>${t(GD_PLURAL[k])}</b><small class="m">${count(k)}</small></button>`).join("")}</div>
     <h3 class="gd-h3">${t("Lo más buscado")}</h3><div class="gd-chips">${gdChips(gdPopular().slice(0, 12))}</div>
     <h3 class="gd-h3">${t("Guías")}</h3>${arts.map(gdCard).join("")}`;
 }
@@ -289,9 +289,9 @@ async function pg_guia() {
   setTimeout(() => { gdPaint(); const i = $("#gd-q"); if (i && !GD.open) i.focus(); }, 0);
   return `<h2 class="ttl">${ic("buscar")} ${t("Guía del servidor")}</h2>
   <p class="m gd-sub">${t("Comandos, trabajos, lugares, negocios, facciones y guías de SampCity. Se actualiza sola con el servidor")}${up ? ` · ${t("última vez")} ${esc(up)}` : ""}.</p>
-  <form class="gd-b" role="search" onsubmit="event.preventDefault();gdPaint()"><label class="gd-in">${ic("buscar")}<input id="gd-q" type="search" autocomplete="off" enterkeyhint="search" placeholder="${t("Busca un comando, un lugar, un trabajo… (ej. vender coche, /me, gasolinera)")}" value="${esc(GD.q)}" oninput="gdInput(this.value)" aria-label="${t("Buscar en la guía")}"></label></form>
-  <div class="gd-f">${["", "guia", "comando", "trabajo", "lugar", "faccion", "negocio"].map((k) => `<button class="btn s" type="button" data-k="${k}" onclick="gdKind('${k}')">${t(k ? GD_PLURAL[k] : "Todo")}</button>`).join("")}
-    <label class="gd-st"><input type="checkbox" ${GD.staff ? "checked" : ""} onchange="gdStaff(this.checked)"> ${t("Comandos de staff")}</label></div>
+  <form class="gd-b" role="search" data-on-submit="event.preventDefault();gdPaint()"><label class="gd-in">${ic("buscar")}<input id="gd-q" type="search" autocomplete="off" enterkeyhint="search" placeholder="${t("Busca un comando, un lugar, un trabajo… (ej. vender coche, /me, gasolinera)")}" value="${esc(GD.q)}" data-on-input="gdInput(this.value)" aria-label="${t("Buscar en la guía")}"></label></form>
+  <div class="gd-f">${["", "guia", "comando", "trabajo", "lugar", "faccion", "negocio"].map((k) => `<button class="btn s" type="button" data-k="${k}" data-on-click="gdKind('${k}')">${t(k ? GD_PLURAL[k] : "Todo")}</button>`).join("")}
+    <label class="gd-st"><input type="checkbox" ${GD.staff ? "checked" : ""} data-on-change="gdStaff(this.checked)"> ${t("Comandos de staff")}</label></div>
   <div id="gd-res" aria-live="polite"></div>`;
 }
 

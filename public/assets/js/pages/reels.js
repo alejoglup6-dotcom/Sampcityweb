@@ -13,26 +13,26 @@ async function rlFetch(){if(RLOAD||!RMORE)return;RLOAD=true;const last=RL.at(-1)
  if(!RL.length){box.innerHTML=rlEmpty();return}
  box.insertAdjacentHTML("beforeend",nu.map((x,i)=>rlItem(x,k+i)).join(""));
  box.querySelectorAll(".rl:not([data-o])").forEach(el=>{el.dataset.o=1;RIO.observe(el)})}
-const rlEmpty=()=>`<div class="rle" id="rle">${ic("videos")}<h3>${t("Aún no hay reels.")}</h3><p class="m">${t("¡Sube el primero!")}</p>${U?`<button class="btn p" type="button" onclick="nuevoReel()">${ic("mas")} ${t("Crear reel")}</button>`:""}</div>`;
+const rlEmpty=()=>`<div class="rle" id="rle">${ic("videos")}<h3>${t("Aún no hay reels.")}</h3><p class="m">${t("¡Sube el primero!")}</p>${U?`<button class="btn p" type="button" data-on-click="nuevoReel()">${ic("mas")} ${t("Crear reel")}</button>`:""}</div>`;
 function rlItem(r,i){const m=r.media[0]||{};
  return `<section class="rl" id="rl${i}" data-i="${i}" aria-label="Reel ${i+1}">
  <video class="rlv" playsinline webkit-playsinline loop preload="none" muted disablepictureinpicture disableremoteplayback poster="${m.thumb?"/media/"+m.thumb:""}" data-src="/media/${m.id}"></video>
- <div class="rlt" onclick="rlTap(${i})"></div><span class="rlpp" aria-hidden="true">${ic("play")}</span><span class="rlsp" aria-hidden="true"></span><button type="button" class="rler" onclick="rlRetry(${i},true)">${t("No se pudo cargar el video. Toca para reintentar")}</button><span class="rlh" aria-hidden="true">${ic("like")}</span>
+ <div class="rlt" data-on-click="rlTap(${i})"></div><span class="rlpp" aria-hidden="true">${ic("play")}</span><span class="rlsp" aria-hidden="true"></span><button type="button" class="rler" data-on-click="rlRetry(${i},true)">${t("No se pudo cargar el video. Toca para reintentar")}</button><span class="rlh" aria-hidden="true">${ic("like")}</span>
  <div class="rlr">
-  <button type="button" id="rk${i}" class="${r.mine>0?"on":""}" onclick="rlLike(${i})" aria-label="${t("Me gusta")}">${ic("like")}<span>${cnt(r.likes)}</span></button>
-  <button type="button" id="rc${i}" onclick="rlCom(${i})" aria-label="${t("Comentarios")}">${ic("discord_comentarios")}<span>${cnt(r.comments)}</span></button>
-  <button type="button" onclick="rlShare(${i})" aria-label="${t("Compartir")}">${ic("compartir_vincular")}<span>${t("Compartir")}</span></button>
-  <button type="button" id="rs${i}" class="${r.saved>0?"on":""}" onclick="rlSave(${i})" aria-label="${t("Guardar")}">${ic("guardar")}<span>${cnt(r.saves)}</span></button>
-  <button type="button" onclick="rlMenu(${i})" aria-label="${t("Opciones")}">${ic("puntos")}</button>
+  <button type="button" id="rk${i}" class="${r.mine>0?"on":""}" data-on-click="rlLike(${i})" aria-label="${t("Me gusta")}">${ic("like")}<span>${cnt(r.likes)}</span></button>
+  <button type="button" id="rc${i}" data-on-click="rlCom(${i})" aria-label="${t("Comentarios")}">${ic("discord_comentarios")}<span>${cnt(r.comments)}</span></button>
+  <button type="button" data-on-click="rlShare(${i})" aria-label="${t("Compartir")}">${ic("compartir_vincular")}<span>${t("Compartir")}</span></button>
+  <button type="button" id="rs${i}" class="${r.saved>0?"on":""}" data-on-click="rlSave(${i})" aria-label="${t("Guardar")}">${ic("guardar")}<span>${cnt(r.saves)}</span></button>
+  <button type="button" data-on-click="rlMenu(${i})" aria-label="${t("Opciones")}">${ic("puntos")}</button>
  </div>
- <div class="rlb"><div class="rla"><a href="${lk(r.author)}">${skin(r.skin,r.author)}<b>${nom(r.author)}</b></a>${U&&r.fstate==="none"?`<button type="button" class="rlf" id="rf${i}" onclick="rlAdd(${i})">${t("Agregar")}</button>`:""}</div>
- ${r.body?`<p class="rlcap" onclick="this.classList.toggle('on')">${linkM(r.body)}</p>`:""}<small>${ago(r.created_at)}</small></div>
+ <div class="rlb"><div class="rla"><a href="${lk(r.author)}">${skin(r.skin,r.author)}<b>${nom(r.author)}</b></a>${U&&r.fstate==="none"?`<button type="button" class="rlf" id="rf${i}" data-on-click="rlAdd(${i})">${t("Agregar")}</button>`:""}</div>
+ ${r.body?`<p class="rlcap" data-on-click="this.classList.toggle('on')">${linkM(r.body)}</p>`:""}<small>${ago(r.created_at)}</small></div>
  <div class="rlpb"><i id="rp${i}"></i></div></section>`}
 async function pg_reels(){RL=[];RMORE=true;RLOAD=false;RACT=-1;RIO?.disconnect();
  const tit=RQ.saved?t("Guardados"):RQ.u?`${t("Reels de")} ${nom(RQ.u)}`:t("Reels");window.PTITLE=tit.replace(/<[^>]*>/g,"");
  setTimeout(rlInit);
- return `<div class="rlh2"><button class="rlib hb2" type="button" onclick="document.getElementById('dr').classList.add('on')" aria-label="${t("Menú")}">${ic("menu_hamburguesa")}</button><a class="rlib bk" href="/" aria-label="${t("Volver")}">‹</a><h1>${tit}</h1><span class="sp"></span>
- <button class="rlib" id="rlmu" type="button" onclick="rlMute()" aria-label="${t("Activar sonido")}">${ic("silencio")}</button>${U?`<button class="rlib" type="button" onclick="nuevoReel()" aria-label="${t("Crear reel")}">${ic("mas")}</button><a class="rlib" href="/perfil?tab=reels" aria-label="${t("Mi perfil")}">${ic("usuario_perfil")}</a>`:`<button class="rlib" type="button" onclick="login()" aria-label="${t("Iniciar sesión")}">${ic("usuario_perfil")}</button>`}</div>
+ return `<div class="rlh2"><button class="rlib hb2" type="button" data-on-click="ab()" aria-label="${t("Menú")}">${ic("menu_hamburguesa")}</button><a class="rlib bk" href="/" aria-label="${t("Volver")}">‹</a><h1>${tit}</h1><span class="sp"></span>
+ <button class="rlib" id="rlmu" type="button" data-on-click="rlMute()" aria-label="${t("Activar sonido")}">${ic("silencio")}</button>${U?`<button class="rlib" type="button" data-on-click="nuevoReel()" aria-label="${t("Crear reel")}">${ic("mas")}</button><a class="rlib" href="/perfil?tab=reels" aria-label="${t("Mi perfil")}">${ic("usuario_perfil")}</a>`:`<button class="rlib" type="button" data-on-click="login()" aria-label="${t("Iniciar sesión")}">${ic("usuario_perfil")}</button>`}</div>
  <div class="rls" id="rls"></div>`}
 async function rlInit(){
  if(!$("#rlc"))document.body.insertAdjacentHTML("beforeend",`<div class="rlc" id="rlc" aria-hidden="true"></div>`); // fuera de #main: así queda encima de la barra inferior
@@ -95,23 +95,23 @@ function rlCopy(i){navigator.clipboard.writeText(location.origin+"/p/"+RL[i].id)
 async function rlAdd(i){const r=RL[i],b=$("#rf"+i);b.disabled=true;const x=await api("/friends/request",{method:"POST",body:{name:r.author}});if(!x.ok){b.disabled=false;return toast(x.d.error||"Error")}
  RL.forEach((y,k)=>{if(y.author===r.author){y.fstate=x.d.state;const c=$("#rf"+k);if(c){c.textContent=t(x.d.state==="friends"?"Amigos":"Solicitud enviada");c.disabled=true}}})}
 function rlMenu(i){const r=RL[i],own=U&&(U.name===r.author||U.canPost);
- modal(`<div class="mm"><button class="btn" onclick="cerrar();rlSave(${i})">${ic("guardar")} ${t(r.saved>0?"Quitar de guardados":"Guardar")}</button><button class="btn" onclick="cerrar();rlCopy(${i})">${ic("compartir_vincular")} ${t("Copiar enlace")}</button><a class="btn" href="${lk(r.author)}">${ic("usuario_perfil")} ${t("Ver perfil")}</a>${own?`<button class="btn" onclick="cerrar();rlDel(${i})">${t("Eliminar reel")}</button>`:""}<button class="btn" onclick="cerrar()">${t("Cerrar")}</button></div>`)}
+ modal(`<div class="mm"><button class="btn" data-on-click="cerrar();rlSave(${i})">${ic("guardar")} ${t(r.saved>0?"Quitar de guardados":"Guardar")}</button><button class="btn" data-on-click="cerrar();rlCopy(${i})">${ic("compartir_vincular")} ${t("Copiar enlace")}</button><a class="btn" href="${lk(r.author)}">${ic("usuario_perfil")} ${t("Ver perfil")}</a>${own?`<button class="btn" data-on-click="cerrar();rlDel(${i})">${t("Eliminar reel")}</button>`:""}<button class="btn" data-on-click="cerrar()">${t("Cerrar")}</button></div>`)}
 async function rlDel(i){if(!confirm(t("¿Eliminar este reel?")))return;const x=await api("/posts/"+RL[i].id,{method:"DELETE"});if(!x.ok)return toast(x.d.error||"Error");
  const el=$("#rl"+i);rlFree(el.querySelector("video"));el.remove();toast(t("Eliminado"))}
 // ---- Comentarios (hoja desde abajo) ----
 async function rlCom(i){RCOM=i;const c=$("#rlc");c.classList.add("on");c.setAttribute("aria-hidden","false");
- c.innerHTML=`<div class="rlch"><b>${t("Comentarios")}</b><button type="button" class="x" onclick="rlComX()" aria-label="${t("Cerrar")}">${ic("cerrar")}</button></div><div class="rlcl" id="rlcl"><div class="sk" style="height:3rem"></div></div>${U?`<div class="rlci">${skin(U.skin,U.name)}<input id="rlci" data-mn maxlength="300" placeholder="${t("Escribe un comentario…")}" aria-label="${t("Escribe un comentario…")}"><button class="btn p s" type="button" onclick="rlSend()">${t("Enviar")}</button></div>`:`<div class="rlci"><button class="btn p s" type="button" onclick="login()">${t("Iniciar sesión")}</button></div>`}`;
+ c.innerHTML=`<div class="rlch"><b>${t("Comentarios")}</b><button type="button" class="x" data-on-click="rlComX()" aria-label="${t("Cerrar")}">${ic("cerrar")}</button></div><div class="rlcl" id="rlcl"><div class="sk" style="height:3rem"></div></div>${U?`<div class="rlci">${skin(U.skin,U.name)}<input id="rlci" data-mn maxlength="300" placeholder="${t("Escribe un comentario…")}" aria-label="${t("Escribe un comentario…")}"><button class="btn p s" type="button" data-on-click="rlSend()">${t("Enviar")}</button></div>`:`<div class="rlci"><button class="btn p s" type="button" data-on-click="login()">${t("Iniciar sesión")}</button></div>`}`;
  const inp=$("#rlci");if(inp)inp.onkeydown=e=>{if(e.key==="Enter")rlSend()};await rlList()}
 function rlComX(){const c=$("#rlc");c.classList.remove("on");c.setAttribute("aria-hidden","true")}
 async function rlList(){const r=RL[RCOM],x=await api("/posts/"+r.id+"/comments"),l=$("#rlcl");if(!l)return;if(!x.ok)return l.innerHTML=`<p class="msg">${esc(x.d.error)}</p>`;
  r.comments=x.d.length;$("#rc"+RCOM+" span").textContent=cnt(r.comments);
- l.innerHTML=x.d.map(c=>`<div class="rlcm">${skin(null,c.author)}<div><div class="rlbb"><a href="${lk(c.author)}"><b>${nom(c.author)}</b></a><p>${linkM(c.body)}</p></div><small>${agoS(c.created_at)}${c.del?` · <button class="lk" type="button" onclick="rlDelC(${c.id})">${t("borrar")}</button>`:""}</small></div></div>`).join("")||`<p class="m rlc0">${t("Sé el primero en comentar.")}</p>`}
+ l.innerHTML=x.d.map(c=>`<div class="rlcm">${skin(null,c.author)}<div><div class="rlbb"><a href="${lk(c.author)}"><b>${nom(c.author)}</b></a><p>${linkM(c.body)}</p></div><small>${agoS(c.created_at)}${c.del?` · <button class="lk" type="button" data-on-click="rlDelC(${c.id})">${t("borrar")}</button>`:""}</small></div></div>`).join("")||`<p class="m rlc0">${t("Sé el primero en comentar.")}</p>`}
 async function rlSend(){const i=$("#rlci"),v=i.value.trim();if(!v)return;i.disabled=true;const x=await api("/posts/"+RL[RCOM].id+"/comments",{method:"POST",body:{body:v}});i.disabled=false;if(!x.ok)return toast(x.d.error||"Error");i.value="";await rlList();const l=$("#rlcl");l.scrollTop=l.scrollHeight}
 async function rlDelC(c){await api("/posts/"+RL[RCOM].id+"/comments/"+c,{method:"DELETE"});rlList()}
 const cerrarHoja0=cerrarHoja;cerrarHoja=function(){cerrarHoja0();const el=$("#rl"+RACT);if(el&&!el.classList.contains("pz"))rlPlay(RACT)}; // al cerrar la hoja sigue el reel
 // ---- Crear reel: elegir video, descripción y subida con barra de progreso ----
 function nuevoReel(){if(!U)return login();HS={};const s=INFO.reelSecs||90,mb=INFO.reelMax||60;document.querySelectorAll("#rls video").forEach(v=>v.pause());
- hoja(hdr("Crear reel",`<button class="btn p s" type="button" id="rnb" disabled onclick="rlPub()">${t("Compartir")}</button>`)+`<div class="shb"><input type="file" id="rnf" accept="video/mp4,video/quicktime,video/webm" hidden onchange="rlPick(this)"><button type="button" class="hs-p rlnp" id="rnp" onclick="$('#rnf').click()">${ic("videos")}<b>${t("Elegir video")}</b><small>MP4 · máx. ${s} s · ${mb} MB</small></button><textarea id="rnc" data-mn maxlength="500" placeholder="${t("Describe tu reel…")}" aria-label="${t("Describe tu reel…")}"></textarea><div class="rlup" id="rnu" hidden><i></i></div><div class="msg" id="rnm" role="alert"></div></div>`)}
+ hoja(hdr("Crear reel",`<button class="btn p s" type="button" id="rnb" disabled data-on-click="rlPub()">${t("Compartir")}</button>`)+`<div class="shb"><input type="file" id="rnf" accept="video/mp4,video/quicktime,video/webm" hidden data-on-change="rlPick(this)"><button type="button" class="hs-p rlnp" id="rnp" data-on-click="clk('#rnf')">${ic("videos")}<b>${t("Elegir video")}</b><small>MP4 · máx. ${s} s · ${mb} MB</small></button><textarea id="rnc" data-mn maxlength="500" placeholder="${t("Describe tu reel…")}" aria-label="${t("Describe tu reel…")}"></textarea><div class="rlup" id="rnu" hidden><i></i></div><div class="msg" id="rnm" role="alert"></div></div>`)}
 async function rlPick(inp){const f=inp.files[0],m=$("#rnm"),s=INFO.reelSecs||90,mb=INFO.reelMax||60;inp.value="";if(!f)return;m.className="msg";m.textContent="";
  if(HS.u)URL.revokeObjectURL(HS.u);HS={};$("#rnb").disabled=true;
  if(!/^video\/(mp4|quicktime|webm)$/.test(f.type))return m.textContent=t("Usa un video MP4");

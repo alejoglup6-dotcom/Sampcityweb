@@ -76,10 +76,10 @@ app.set("trust proxy", 1);
 app.use(compression({ filter: (req, res) => req.path !== "/api/stream" && compression.filter(req, res) })); // gzip/deflate para HTML, CSS, JS y JSON (el video y las imágenes ya vienen comprimidos y se saltan)
 app.disable("x-powered-by");
 // 18-19. HTTPS forzado + cabeceras de seguridad
-// script-src-elem (se completa al cargar las páginas): solo corren los <script> propios y los en línea conocidos (por su hash);
-// un <script> inyectado no se ejecuta. Los navegadores viejos usan script-src.
+// Los <script> en línea solo corren si su hash está en la lista (se calcula al cargar las páginas); no hay onclick="…" en línea
+// (los eventos se manejan con data-on-* desde core.js), así que ni los scripts ni los atributos de evento inyectados se ejecutan.
 let CSP = "";
-const cspBuild = (hashes = []) => ["default-src 'self'", "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com", `script-src-elem 'self' https://challenges.cloudflare.com ${hashes.map((h) => `'sha256-${h}'`).join(" ")}`.trim(), "script-src-attr 'unsafe-inline'", "worker-src 'self'", "manifest-src 'self'", "style-src 'self' 'unsafe-inline'", "font-src 'self'", "img-src 'self' data: blob: https:", "media-src 'self' blob:", "connect-src 'self'", "frame-src https://challenges.cloudflare.com", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'"].join("; ");
+const cspBuild = (hashes = []) => ["default-src 'self'", `script-src 'self' https://challenges.cloudflare.com ${hashes.map((h) => `'sha256-${h}'`).join(" ")}`.trim(), "script-src-attr 'none'", "worker-src 'self'", "manifest-src 'self'", "style-src 'self' 'unsafe-inline'", "font-src 'self'", "img-src 'self' data: blob: https:", "media-src 'self' blob:", "connect-src 'self'", "frame-src https://challenges.cloudflare.com", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'"].join("; ");
 CSP = cspBuild();
 app.use((req, res, next) => {
   if (HTTPS && req.headers["x-forwarded-proto"] === "http") return res.redirect(301, BASE + req.originalUrl);
