@@ -223,7 +223,7 @@ require("./routes/discord")(app, { crypto, store, E, BASE, q, sessionId, me, not
 const sec = require("./routes/seguridad")(app, { crypto, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, checkPassword, setSession, LOGOUT });
 const { friendIds, friendStates } = require("./routes/amigos")(app, { sec, str, pid, SKIN_COL, pool, q, sessionId, hit, me, NJ, notify, unreadCount });
 
-const { STORY_LIVE, FFMPEG, attach, cleanup } = require("./routes/contenido")(app, { sec, path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates });
+const { STORY_LIVE, FFMPEG, attach, cleanup, canSee } = require("./routes/contenido")(app, { sec, path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates });
 
 require("./routes/guia")(app, { path, str, MIN_POST, q, hit, me, ROOT: __dirname });
 
@@ -260,8 +260,8 @@ app.get("/robots.txt", (req, res) => res.type("text/plain").send(`User-agent: *\
 app.get("/sitemap.xml", (req, res) => res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Object.keys(ROUTES).filter((u) => u !== "/perfil" && u !== "/notificaciones" && u !== "/amigos" && u !== "/mensajes" && u !== "/configuracion" && u !== "/buscar" && u !== "/verificar").map((u) => `  <url><loc>${BASE}${u}</loc><changefreq>${u === "/" || u === "/noticias" ? "daily" : "weekly"}</changefreq><priority>${u === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}\n</urlset>\n`));
 app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", setHeaders: (res, f) => { if (/[\\/]assets[\\/]fonts[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=31536000, immutable"); else if (/[\\/]assets[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=86400"); } }));
 const social = require("./routes/social")(app, { sec, friendIds, express, str, pid, SKIN_COL, SKIN_URL, q, sessionId, hit, me });
-require("./routes/extra")(app, { sec, attach, friendIds, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
-require("./routes/grupos")(app, { sec, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
+require("./routes/extra")(app, { canSee, sec, attach, friendIds, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
+require("./routes/grupos")(app, { canSee, sec, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
 require("./routes/market")(app, { express, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me });
 
 require("./routes/vacantes")(app, { E, str, pid, MIN_POST, SKIN_COL, ADMIN_LEVELS, q, hit, me, BCAST, notify });

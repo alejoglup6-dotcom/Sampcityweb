@@ -1,7 +1,7 @@
 // Página: Mensajes (/mensajes) · chat privado entre jugadores. Se actualiza solo cada pocos segundos.
 Object.assign(EN,{"Inicia sesión para ver tus mensajes.":"Log in to see your messages.","Nuevo mensaje":"New message","Aún no tienes conversaciones.":"You have no conversations yet.","Escribe a un amigo o a cualquier jugador.":"Write to a friend or any player.","Elige una conversación":"Pick a conversation","o empieza una nueva.":"or start a new one.","Escribe un mensaje…":"Write a message…","Enviar":"Send","Volver":"Back","Tú":"You","Buscar jugador…":"Search player…","Tus amigos":"Your friends","Sin resultados":"No results","Di hola 👋":"Say hi 👋","¿Borrar este mensaje?":"Delete this message?","Visto":"Seen","Enviado":"Sent","Borrar":"Delete","escribiendo…":"typing…","Enviar foto":"Send photo","Ver perfil":"View profile","Borrar conversación":"Delete conversation","¿Borrar esta conversación? Solo se borra para ti.":"Delete this conversation? It is only deleted for you.","No puedes escribirle a este jugador.":"You can't message this player.","📷 Foto":"📷 Photo"});
 let CHU=new URLSearchParams(location.search).get("u")||"",CHL=0,CHT=0,CHD="",CHN=0,CHS=0;
-const chNm=n=>esc(String(n).replace(/_/g," ")),chDt=s=>new Date(String(s).replace(" ","T"));
+const chNm=n=>esc(String(n).replace(/_/g," ")),chDt=s=>dts(s);
 const chHr=s=>chDt(s).toLocaleTimeString(L==="en"?"en-US":"es-CO",{hour:"2-digit",minute:"2-digit"});
 const chTxt=b=>esc(b).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener nofollow">$1</a>').replace(/\n/g,"<br>");
 const chTick=m=>m.mine?`<i class="chk" title="${t(m.id<=CHS?"Visto":"Enviado")}">${m.id<=CHS?"✓✓":"✓"}</i>`:"";

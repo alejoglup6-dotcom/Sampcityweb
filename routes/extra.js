@@ -1,11 +1,12 @@
 // Más funciones sociales: quién reaccionó, ocultar y fijar publicaciones, seguir, reacciones y edición de
 // comentarios, información del perfil y buscador global.
-module.exports = (app, { sec, attach, friendIds, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify }) => {
+module.exports = (app, { canSee, sec, attach, friendIds, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify }) => {
 const NAME = /^\w{1,24}$/, like = (s) => "%" + s.replace(/[\\%_]/g, "\\$&") + "%";
 const byName = async (n) => (NAME.test(n) ? (await q("SELECT id, name FROM player WHERE name = ?", [n]))[0] : null);
 
 // Quién reaccionó a una publicación
 app.get("/api/posts/:id(\\d+)/likes", async (req, res) => {
+  if (!(await canSee(pid(req.params.id), sessionId(req) || 0))) return res.status(404).json({ error: "No existe" });
   res.json(await q(`SELECT p.name, p.${SKIN_COL} AS skin, l.kind FROM web_likes l JOIN player p ON p.id = l.player_id WHERE l.post_id = ? ORDER BY l.kind, p.name LIMIT 300`, [pid(req.params.id)]));
 });
 // Ocultar una publicación de mi feed (se puede deshacer)

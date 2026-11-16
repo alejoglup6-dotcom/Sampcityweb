@@ -1,5 +1,5 @@
 // Grupos, eventos, encuestas y vistas de historias.
-module.exports = (app, { sec, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify }) => {
+module.exports = (app, { canSee, sec, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify }) => {
 const NAME = /^\w{1,24}$/, like = (s) => "%" + s.replace(/[\\%_]/g, "\\$&") + "%";
 const txt = (v, n) => str(v).replace(/\s+/g, " ").trim().slice(0, n);
 const isStaff = (u) => Number(u.admin_level) >= MIN_POST;
@@ -128,6 +128,7 @@ app.post("/api/posts/:id(\\d+)/vote", async (req, res) => {
   let o = []; try { o = JSON.parse(pl.opts); } catch {}
   const opt = Math.floor(Number(req.body.opt));
   if (!pl || !(opt >= 0 && opt < o.length)) return res.status(400).json({ error: "Opción no válida" });
+  if (!(await canSee(id, u.id))) return res.status(404).json({ error: "No existe" });
   await q("INSERT INTO web_poll_votes (post_id, player_id, opt) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE opt = VALUES(opt)", [id, u.id, opt]);
   const vs = await q("SELECT opt, COUNT(*) AS n FROM web_poll_votes WHERE post_id = ? GROUP BY opt", [id]);
   res.json({ opts: o.map((t, i) => ({ t, n: Number((vs.find((v) => Number(v.opt) === i) || {}).n) || 0 })), mine: opt });

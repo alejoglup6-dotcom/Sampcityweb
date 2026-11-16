@@ -103,6 +103,7 @@ app.get("/api/friends/requests", async (req, res) => { // solicitudes que me env
 app.get("/api/friends/suggestions", async (req, res) => { // jugadores recomendados: con amigos en común primero, luego los más activos
   const id = sessionId(req); if (!id) return res.status(401).json({ error: "Inicia sesión" });
   const pool = await q(`SELECT p.id, p.name, p.${SKIN_COL} AS skin, p.connected, p.level FROM player p WHERE p.id <> ? AND p.id NOT IN (SELECT IF(a = ?, b, a) FROM web_friends WHERE (a = ? OR b = ?) AND (status = 1 OR b = ?)) ORDER BY p.connected DESC, p.last_connection DESC, p.id DESC LIMIT 100`, [id, id, id, id, id]);
+  const blk = await sec.blockedIds(id); for (let i = pool.length - 1; i >= 0; i--) if (blk.includes(Number(pool[i].id))) pool.splice(i, 1); // sin jugadores bloqueados
   const ids = pool.map((r) => Number(r.id)), [{ out: mc, smp }, st] = await Promise.all([mutualCounts(await friendIds(id), ids, true), friendStates(id, ids)]);
   const list = pool.map((r) => ({ id: r.id, name: r.name, skin: r.skin, connected: r.connected, level: r.level, mutual: mc.get(Number(r.id)) || 0, state: st.get(Number(r.id)) || "none" })).sort((x, y) => y.mutual - x.mutual || Number(y.connected) - Number(x.connected)).slice(0, 30);
   const faces = await mutualFaces(smp);
