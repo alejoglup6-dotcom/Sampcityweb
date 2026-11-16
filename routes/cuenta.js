@@ -1,6 +1,6 @@
 // Cuenta: sesiones abiertas, verificación en dos pasos, recuperar contraseña por correo, descargar mis datos y eliminar mi contenido.
 const { b32encode, totpOk } = require("../lib/util");
-module.exports = (app, { crypto, E, BASE, str, q, sessionOf, hit, me, checkPassword, captchaOk, setSession, clearSession, LOGOUT, REVOKED, getRemovePosts }) => {
+module.exports = (app, { crypto, E, BASE, str, q, sessionOf, hit, me, checkPassword, captchaOk, setSession, clearSession, LOGOUT, REVOKED, getRemovePosts, imgs }) => {
 const sha = (s) => crypto.createHash("sha256").update(s).digest("hex");
 const gamePass = (pass) => { const salt = crypto.randomBytes(12).toString("base64").replace(/[^A-Za-z0-9]/g, "").slice(0, 15).padEnd(15, "x"); return { salt, hash: crypto.createHash("sha256").update(pass + salt).digest("hex").toUpperCase() }; }; // mismo formato que el juego
 async function logoutAll(uid) { // cierra todas las sesiones del jugador (las cookies anteriores dejan de valer)
@@ -132,15 +132,15 @@ app.post("/api/settings/delete", async (req, res) => {
   if (!hit("del|" + u.id, 3, 3600000)) return res.status(429).json({ error: "Demasiados intentos. Prueba más tarde." });
   const r = (await q("SELECT salt, pass FROM player WHERE id = ?", [u.id]))[0];
   if (!r || !r.pass || !(await checkPassword(str(req.body.password).slice(0, 72).replace(/%/g, "#"), r.salt, r.pass))) return res.status(403).json({ error: "La contraseña no es correcta" });
-  const id = u.id, imgs = [], del = (sql, p) => q(sql, p).catch((e) => console.log("[eliminar]", e.message));
+  const id = u.id, pics = [], del = (sql, p) => q(sql, p).catch((e) => console.log("[eliminar]", e.message));
   await getRemovePosts()((await q("SELECT id FROM web_posts WHERE author = ?", [u.name])).map((x) => x.id));
   const cs = (await q("SELECT id FROM web_comments WHERE player_id = ? OR parent IN (SELECT id FROM (SELECT id FROM web_comments WHERE player_id = ?) x)", [id, id])).map((x) => x.id);
   if (cs.length) { await del("DELETE FROM web_clikes WHERE comment_id IN (?)", [cs]); await del("DELETE FROM web_comments WHERE id IN (?)", [cs]); }
-  imgs.push(...(await q("SELECT img FROM web_msgs WHERE (a = ? OR b = ?) AND img IS NOT NULL AND room IS NULL", [id, id])).map((x) => x.img), ...(await q("SELECT img FROM web_msgs WHERE a = ? AND img IS NOT NULL", [id])).map((x) => x.img));
+  pics.push(...(await q("SELECT img FROM web_msgs WHERE (a = ? OR b = ?) AND img IS NOT NULL AND room IS NULL", [id, id])).map((x) => x.img), ...(await q("SELECT img FROM web_msgs WHERE a = ? AND img IS NOT NULL", [id])).map((x) => x.img));
   await del("DELETE FROM web_msg_rx WHERE player_id = ? OR msg_id IN (SELECT id FROM web_msgs WHERE a = ? OR (b = ? AND room IS NULL))", [id, id, id]);
   await del("DELETE FROM web_msgs WHERE a = ? OR (b = ? AND room IS NULL)", [id, id]);
-  const pf = (await q("SELECT avatar, cover FROM web_profile WHERE player_id = ?", [id]))[0]; if (pf) imgs.push(pf.avatar, pf.cover);
-  imgs.push(...(await q("SELECT img FROM web_market WHERE seller = ? AND img IS NOT NULL", [id]).catch(() => [])).map((x) => x.img));
+  const pf = (await q("SELECT avatar, cover FROM web_profile WHERE player_id = ?", [id]))[0]; if (pf) pics.push(pf.avatar, pf.cover);
+  pics.push(...(await q("SELECT img FROM web_market WHERE seller = ? AND img IS NOT NULL", [id]).catch(() => [])).map((x) => x.img));
   for (const [t, c] of [["web_likes", "player_id"], ["web_clikes", "player_id"], ["web_saved", "player_id"], ["web_hidden", "player_id"], ["web_tags", "player_id"], ["web_poll_votes", "player_id"], ["web_story_views", "player_id"], ["web_event_rsvp", "player_id"], ["web_notifs", "player_id"], ["web_notifs", "actor_id"], ["web_profile", "player_id"], ["web_chat_clear", "player_id"], ["web_chat_clear", "peer"], ["web_market", "seller"], ["web_push", "player_id"], ["web_room_members", "player_id"], ["web_group_members", "player_id"], ["web_applications", "player_id"], ["web_verified", "player_id"]]) await del(`DELETE FROM ${t} WHERE ${c} = ?`, [id]);
   for (const t of ["web_friends", "web_follows", "web_blocks"]) await del(`DELETE FROM ${t} WHERE a = ? OR b = ?`, [id, id]);
   const evs = (await q("SELECT id FROM web_events WHERE owner = ?", [id]).catch(() => [])).map((x) => x.id);
@@ -154,7 +154,7 @@ app.post("/api/settings/delete", async (req, res) => {
     const nx = (await q("SELECT player_id FROM web_room_members WHERE room_id = ? LIMIT 1", [rm.id]))[0];
     if (nx) await del("UPDATE web_rooms SET owner = ? WHERE id = ?", [nx.player_id, rm.id]); else { await del("DELETE FROM web_msgs WHERE room = ?", [rm.id]); await del("DELETE FROM web_rooms WHERE id = ?", [rm.id]); }
   }
-  const im = [...new Set(imgs.filter(Boolean))]; if (im.length) await del("DELETE FROM web_images WHERE id IN (?)", [im]);
+  const im = [...new Set(pics.filter(Boolean))]; if (im.length) await imgs.del(im).catch((e) => console.log("[eliminar]", e.message));
   await del("UPDATE web_settings SET msg = 0, prof = 0, tag = 0, nmask = 0, totp = '', totp_on = 0 WHERE player_id = ?", [id]);
   await logoutAll(id); clearSession(res);
   res.json({ ok: true });

@@ -1,5 +1,5 @@
 // Funciones sociales: foto de perfil / banner / biografía, y chat privado entre jugadores.
-module.exports = (app, { vivo, sec, friendIds, express, str, pid, SKIN_COL, SKIN_URL, q, sessionId, hit, me }) => {
+module.exports = (app, { imgs, vivo, sec, friendIds, express, str, pid, SKIN_COL, SKIN_URL, q, sessionId, hit, me }) => {
 const NAME = /^\w{1,24}$/;
 const player = async (name) => (NAME.test(name) ? (await q(`SELECT id, name, ${SKIN_COL} AS skin, connected FROM player WHERE name = ?`, [name]))[0] : null);
 
@@ -32,9 +32,9 @@ app.post("/api/profile/photo", express.json({ limit: "1500kb" }), async (req, re
   const magic = (m[1] === "jpeg" && buf[0] === 0xff && buf[1] === 0xd8) || (m[1] === "png" && buf[0] === 0x89 && buf[1] === 0x50) || (m[1] === "webp" && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP");
   if (!magic || buf.length > 900 * 1024) return res.status(400).json({ error: "Imagen no válida o muy pesada (máx. 900 KB)" });
   const old = (await q(`SELECT ${col} AS i FROM web_profile WHERE player_id = ?`, [u.id]))[0];
-  const id = (await q("INSERT INTO web_images (mime, data) VALUES (?, ?)", ["image/" + m[1], buf])).insertId;
+  const id = await imgs.put("image/" + m[1], buf);
   await q(`INSERT INTO web_profile (player_id, ${col}) VALUES (?, ?) ON DUPLICATE KEY UPDATE ${col} = VALUES(${col})`, [u.id, id]);
-  if (old && old.i) await q("DELETE FROM web_images WHERE id = ?", [old.i]);
+  if (old && old.i) await imgs.del(old.i);
   if (col === "avatar") AV.set(u.name.toLowerCase(), id);
   res.json({ ok: true, url: `/img/${id}` });
 });
@@ -43,7 +43,7 @@ app.delete("/api/profile/photo", async (req, res) => {
   const col = req.query.kind === "cover" ? "cover" : req.query.kind === "avatar" ? "avatar" : "";
   if (!col) return res.status(400).json({ error: "Faltan datos" });
   const old = (await q(`SELECT ${col} AS i FROM web_profile WHERE player_id = ?`, [u.id]))[0];
-  if (old && old.i) { await q(`UPDATE web_profile SET ${col} = NULL WHERE player_id = ?`, [u.id]); await q("DELETE FROM web_images WHERE id = ?", [old.i]); }
+  if (old && old.i) { await q(`UPDATE web_profile SET ${col} = NULL WHERE player_id = ?`, [u.id]); await imgs.del(old.i); }
   if (col === "avatar") AV.delete(u.name.toLowerCase());
   res.json({ ok: true });
 });
@@ -156,7 +156,7 @@ async function saveMsg(u, { peer = 0, room = null }, body, res) {
   if (!hit("ch|" + u.id, 30, 60000)) { res.status(429).json({ error: "Vas muy rápido. Espera un momento." }); return null; }
   let reply = pid(body.reply); // solo se puede responder a un mensaje de esta misma conversación
   if (reply && !(await q(room ? "SELECT 1 FROM web_msgs WHERE id = ? AND room = ?" : "SELECT 1 FROM web_msgs WHERE id = ? AND room IS NULL AND ((a = ? AND b = ?) OR (a = ? AND b = ?))", room ? [reply, room] : [reply, u.id, peer, peer, u.id])).length) reply = 0;
-  const iid = att ? (await q("INSERT INTO web_images (mime, data) VALUES (?, ?)", [att.mime, att.buf])).insertId : null;
+  const iid = att ? await imgs.put(att.mime, att.buf) : null;
   const r = await q("INSERT INTO web_msgs (a, b, body, img, room, reply_to, seen) VALUES (?, ?, ?, ?, ?, ?, ?)", [u.id, peer, text, iid, room, reply || null, room ? 1 : 0]);
   const m = (await outMsgs(await q(MSEL + " WHERE m.id = ?", [r.insertId]), u.id, !!room))[0];
   return { id: r.insertId, text: preview(text, att), m };
@@ -175,7 +175,7 @@ app.post("/api/chat/:name", express.json({ limit: "1500kb" }), async (req, res) 
 async function dropMsgs(rows) { // borra mensajes con su adjunto y sus reacciones
   const ids = rows.map((r) => r.id), im = rows.map((r) => r.img).filter(Boolean); if (!ids.length) return;
   await q("DELETE FROM web_msg_rx WHERE msg_id IN (?)", [ids]); await q("DELETE FROM web_msgs WHERE id IN (?)", [ids]);
-  if (im.length) await q("DELETE FROM web_images WHERE id IN (?)", [im]);
+  if (im.length) await imgs.del(im);
 }
 app.delete("/api/chat/msg/:id(\\d+)", async (req, res) => { // borrar un mensaje propio (también su foto o audio)
   const id = sessionId(req); if (!id) return res.status(401).json({ error: "Inicia sesión" });

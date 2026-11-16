@@ -24,6 +24,7 @@ const ADMIN_LEVELS = ["Ciudadano", "Soporte", "Ayudante", "Moderador", "Moderado
 
 const pool = mysql.createPool({ host: E.MYSQL_HOST, port: Number(E.MYSQL_PORT) || 3306, user: E.MYSQL_USER, password: E.MYSQL_PASSWORD, database: E.MYSQL_DATABASE, charset: "utf8mb4", connectionLimit: Math.max(2, Number(E.MYSQL_POOL) || 10), ssl: E.MYSQL_SSL === "1" ? { minVersion: "TLSv1.2", rejectUnauthorized: E.MYSQL_SSL_STRICT !== "0" } : undefined, dateStrings: true, supportBigNumbers: true, bigNumberStrings: true });
 const q = async (sql, p) => (await pool.query(sql, p))[0];
+const imgs = require("./lib/imagenes")(q, E); // imágenes sueltas y adjuntos del chat (base de datos o MEDIA_DIR)
 
 // ---- Sesión: cookie firmada (HMAC), HttpOnly, 7 días. Cada sesión lleva su id (sid): se listan y se cierran una a una ----
 const LOGOUT = new Map(); // jugador → momento del último «cerrar sesión en todos los dispositivos»
@@ -54,10 +55,8 @@ async function limited(key, max) {
   await q("DELETE FROM web_tries WHERE t < ?", [Date.now() - 15 * 60000]);
   return Number((await q("SELECT COUNT(*) AS n FROM web_tries WHERE k = ?", [key]))[0].n) >= max;
 }
-// ---- Límite de peticiones por IP (en memoria) ----
-const buckets = new Map();
-const hit = (key, max, ms) => { const now = Date.now(); let b = buckets.get(key); if (!b || b.r < now) { b = { n: 0, r: now + ms }; buckets.set(key, b); } return ++b.n <= max; };
-setInterval(() => { const now = Date.now(); for (const [k, b] of buckets) if (b.r < now) buckets.delete(k); }, 60000).unref();
+// ---- Límite de peticiones: en memoria + tabla web_limits (sobrevive a reinicios y vale entre varios procesos) ----
+const limits = require("./lib/limites")(q), hit = limits.hit;
 // ---- Protección anti-bots: Cloudflare Turnstile (opcional, se activa con TURNSTILE_SITEKEY y TURNSTILE_SECRET) ----
 async function captchaOk(req) {
   if (!E.TURNSTILE_SECRET) return true;
@@ -240,9 +239,9 @@ require("./routes/discord")(app, { crypto, store, E, BASE, q, sessionId, me, not
 const sec = require("./routes/seguridad")(app, { crypto, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, checkPassword, setSession, LOGOUT, mod });
 const { friendIds, friendStates } = require("./routes/amigos")(app, { sec, str, pid, SKIN_COL, pool, q, sessionId, hit, me, NJ, notify, unreadCount, unreadMsgs: (id) => social.unreadMsgs(id) });
 
-const { STORY_LIVE, FFMPEG, attach, cleanup, canSee, removePosts } = require("./routes/contenido")(app, { vivo, mod, infoExtra: () => ({ verified: mod.verified(), mail: cuenta.mailOn(), push: vivo.pushOn() }), sec, path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates });
+const { STORY_LIVE, FFMPEG, attach, cleanup, canSee, removePosts } = require("./routes/contenido")(app, { imgs, vivo, mod, infoExtra: () => ({ verified: mod.verified(), mail: cuenta.mailOn(), push: vivo.pushOn() }), sec, path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates });
 
-const cuenta = require("./routes/cuenta")(app, { crypto, E, BASE, str, q, sessionOf, hit, me, checkPassword, captchaOk, setSession, clearSession, LOGOUT, REVOKED, getRemovePosts: () => removePosts });
+const cuenta = require("./routes/cuenta")(app, { crypto, E, BASE, str, q, sessionOf, hit, me, checkPassword, captchaOk, setSession, clearSession, LOGOUT, REVOKED, getRemovePosts: () => removePosts, imgs });
 require("./routes/guia")(app, { path, str, MIN_POST, q, hit, me, ROOT: __dirname });
 
 require("./routes/launcher")(app, { path, store, E, q, attach, ROOT: __dirname });
@@ -282,11 +281,11 @@ app.get("/p/:id(\\d+)", async (req, res) => { // enlace propio de cada publicaci
 app.get("/robots.txt", (req, res) => res.type("text/plain").send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /auth/\nDisallow: /notificaciones\nDisallow: /amigos\n\nSitemap: ${BASE}/sitemap.xml\n`));
 app.get("/sitemap.xml", (req, res) => res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Object.keys(ROUTES).filter((u) => u !== "/perfil" && u !== "/notificaciones" && u !== "/amigos" && u !== "/mensajes" && u !== "/configuracion" && u !== "/buscar" && u !== "/verificar" && u !== "/recuperar" && u !== "/panel").map((u) => `  <url><loc>${BASE}${u}</loc><changefreq>${u === "/" || u === "/noticias" ? "daily" : "weekly"}</changefreq><priority>${u === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}\n</urlset>\n`));
 app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", setHeaders: (res, f) => { if (/[\\/]assets[\\/]fonts[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=31536000, immutable"); else if (/[\\/]assets[\\/]/.test(f)) res.set("Cache-Control", /[?&]v=\w+/.test(res.req.url) ? "public, max-age=31536000, immutable" : "public, max-age=86400"); else if (/[\\/]sw\.js$/.test(f)) res.set("Cache-Control", "no-cache"); } }));
-const social = require("./routes/social")(app, { vivo, sec, friendIds, express, str, pid, SKIN_COL, SKIN_URL, q, sessionId, hit, me });
+const social = require("./routes/social")(app, { imgs, vivo, sec, friendIds, express, str, pid, SKIN_COL, SKIN_URL, q, sessionId, hit, me });
 require("./routes/extra")(app, { canSee, sec, attach, friendIds, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
 require("./routes/enlaces")(app, { crypto, str, q, sessionId, hit });
 require("./routes/grupos")(app, { mod, canSee, sec, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
-require("./routes/market")(app, { express, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me });
+require("./routes/market")(app, { imgs, express, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me });
 
 require("./routes/vacantes")(app, { E, str, pid, MIN_POST, SKIN_COL, ADMIN_LEVELS, q, hit, me, BCAST, notify });
 
@@ -312,6 +311,7 @@ const addColEarly = async () => { for (const [c, d] of [["totp", "VARCHAR(40) NO
   await q("CREATE TABLE IF NOT EXISTS web_blocks (a INT NOT NULL, b INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (a, b), KEY b (b)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_reports (id INT AUTO_INCREMENT PRIMARY KEY, reporter INT NOT NULL, kind VARCHAR(8) NOT NULL, target INT NOT NULL, reason VARCHAR(20) NOT NULL, note VARCHAR(300) NOT NULL DEFAULT '', status TINYINT NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY st (status, id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await addColEarly();
+  await limits.start();
   await cuenta.init(); await mod.init(); await vivo.init();
   await sec.loadLogout();
   const addCol = async (tb, col, ddl) => { if (!(await q(`SHOW COLUMNS FROM ${tb} LIKE '${col}'`)).length) await q(`ALTER TABLE ${tb} ADD COLUMN ${col} ${ddl}`); }; // columnas nuevas sobre tablas que ya existen
@@ -434,6 +434,7 @@ const addColEarly = async () => { for (const [c, d] of [["totp", "VARCHAR(40) NO
   await q("CREATE TABLE IF NOT EXISTS web_rooms (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(40) NOT NULL, owner INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_room_members (room_id INT NOT NULL, player_id INT NOT NULL, last_read INT NOT NULL DEFAULT 0, joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (room_id, player_id), KEY p (player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_previews (h CHAR(64) NOT NULL PRIMARY KEY, url VARCHAR(500) NOT NULL, title VARCHAR(140) NOT NULL DEFAULT '', descr VARCHAR(240) NOT NULL DEFAULT '', img VARCHAR(500) NOT NULL DEFAULT '', at BIGINT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await addCol("web_images", "disk", "TINYINT NOT NULL DEFAULT 0");
   await addCol("web_media", "disk", "TINYINT NOT NULL DEFAULT 0"); // 1 = el archivo está en MEDIA_DIR y no en la base de datos
   // Índices para que el feed, los perfiles y el chat no recorran tablas enteras
   for (const [tb, key, cols] of [["web_posts", "au", "author, id"], ["web_posts", "gr", "group_id, id"], ["web_posts", "ty", "type, id"], ["web_posts", "cr", "created_at"], ["web_likes", "pl", "player_id"], ["web_comments", "pc", "player_id, created_at"], ["web_comments", "pa", "parent"], ["web_msgs", "im", "img"], ["web_msgs", "rm", "room, id"], ["web_msgs", "bs", "b, seen"], ["web_tags", "pl", "player_id"], ["web_market", "ss", "status, id"]]) await addKey(tb, key, cols);

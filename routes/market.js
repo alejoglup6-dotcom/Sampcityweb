@@ -1,6 +1,6 @@
 // Marketplace: anuncios de compra/venta entre jugadores (vehículos, propiedades, negocios, objetos).
 // La web solo publica el anuncio: el trato y la entrega se hacen dentro del juego.
-module.exports = (app, { express, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me }) => {
+module.exports = (app, { imgs, express, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me }) => {
 const CATS = ["vehiculos", "propiedades", "negocios", "objetos"], MAX_ACTIVE = 20, PER = 12;
 const like = (s) => "%" + s.replace(/[\\%_]/g, "\\$&") + "%"; // el texto buscado no puede meter comodines
 
@@ -30,7 +30,7 @@ app.post("/api/market", express.json({ limit: "1500kb" }), async (req, res) => {
     const buf = Buffer.from(m[2], "base64");
     const magic = (m[1] === "jpeg" && buf[0] === 0xff && buf[1] === 0xd8) || (m[1] === "png" && buf[0] === 0x89 && buf[1] === 0x50) || (m[1] === "webp" && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP");
     if (!magic || buf.length > 900 * 1024) return res.status(400).json({ error: "Imagen no válida o muy pesada (máx. 900 KB)" });
-    img = (await q("INSERT INTO web_images (mime, data) VALUES (?, ?)", ["image/" + m[1], buf])).insertId;
+    img = await imgs.put("image/" + m[1], buf);
   }
   const r = await q("INSERT INTO web_market (seller, cat, title, price, body, img) VALUES (?, ?, ?, ?, ?, ?)", [u.id, cat, title, price, body, img]);
   res.json({ ok: true, id: r.insertId });
@@ -64,7 +64,7 @@ app.delete("/api/market/:id(\\d+)", async (req, res) => {
   if (!row) return res.status(404).json({ error: "Ese anuncio ya no existe" });
   if (Number(row.seller) !== u.id && !(Number(u.admin_level) >= MIN_POST)) return res.status(403).json({ error: "No tienes permiso" });
   await q("DELETE FROM web_market WHERE id = ?", [id]);
-  if (row.img) await q("DELETE FROM web_images WHERE id = ?", [row.img]);
+  if (row.img) await imgs.del(row.img);
   res.json({ ok: true });
 });
 };

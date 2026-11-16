@@ -4,12 +4,32 @@ module.exports = (app, { E, BASE, str, q, sessionId, hit }) => {
 // ---- En vivo: cada pestaña abre /api/stream y se queda escuchando ----
 const conns = new Map(); // jugador → Set de respuestas abiertas
 const MAX_PER_USER = 6;
-const send = (uid, ev, data = {}) => {
+const local = (uid, ev, data) => {
   const set = conns.get(Number(uid)); if (!set || !set.size) return false;
   const msg = `event: ${ev}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const r of set) { try { r.write(msg); } catch {} }
   return true;
 };
+// Con varios procesos de Node (LIVE_SHARED=1 en el .env) cada aviso se apunta en web_live y los demás procesos lo recogen en ~1 s.
+const SHARED = E.LIVE_SHARED === "1", SRC = require("crypto").randomBytes(4).toString("hex");
+const send = (uid, ev, data = {}) => {
+  if (SHARED && uid) q("INSERT INTO web_live (src, uid, ev, data) VALUES (?, ?, ?, ?)", [SRC, uid, String(ev).slice(0, 12), JSON.stringify(data).slice(0, 500)]).catch(() => {});
+  return local(uid, ev, data);
+};
+async function sharedStart() {
+  await q("CREATE TABLE IF NOT EXISTS web_live (id BIGINT AUTO_INCREMENT PRIMARY KEY, src CHAR(8) NOT NULL, uid INT NOT NULL, ev VARCHAR(12) NOT NULL, data VARCHAR(500) NOT NULL, at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY a (at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  if (!SHARED) return;
+  let last = Number((await q("SELECT COALESCE(MAX(id), 0) AS n FROM web_live"))[0].n), n = 0, busy = false;
+  setInterval(async () => {
+    if (busy) return; busy = true;
+    try {
+      for (const r of await q("SELECT id, src, uid, ev, data FROM web_live WHERE id > ? ORDER BY id LIMIT 500", [last])) { last = Number(r.id); if (r.src !== SRC) { let d = {}; try { d = JSON.parse(r.data); } catch {} local(r.uid, r.ev, d); } }
+      if (++n % 60 === 0) await q("DELETE FROM web_live WHERE at < NOW() - INTERVAL 1 MINUTE");
+    } catch {}
+    busy = false;
+  }, 1000).unref();
+  console.log("[vivo] avisos compartidos entre procesos (LIVE_SHARED)");
+}
 const online = (uid) => (conns.get(Number(uid)) || { size: 0 }).size > 0;
 app.get("/api/stream", (req, res) => {
   const uid = sessionId(req); if (!uid) return res.status(401).json({ error: "Inicia sesión" });
@@ -27,6 +47,7 @@ let wp = null, KEY = "";
 try { wp = require("web-push"); } catch {}
 const PUSH_HOSTS = /^(fcm\.googleapis\.com|updates\.push\.services\.mozilla\.com|[a-z0-9-]+\.notify\.windows\.com|[a-z0-9-]+\.push\.apple\.com)$/; // solo servicios de push conocidos: el servidor nunca llama a otra dirección
 async function init() {
+  await sharedStart();
   await q("CREATE TABLE IF NOT EXISTS web_kv (k VARCHAR(40) NOT NULL PRIMARY KEY, v TEXT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_push (id INT AUTO_INCREMENT PRIMARY KEY, player_id INT NOT NULL, h CHAR(64) NOT NULL, endpoint VARCHAR(600) NOT NULL, p256dh VARCHAR(120) NOT NULL, auth VARCHAR(40) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY h (h), KEY p (player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   if (!wp) return console.log("[push] sin el paquete web-push: no hay notificaciones push (npm install lo instala)");

@@ -1,6 +1,6 @@
 // Rutas de contenido. Extraído de server.js sin cambiar su comportamiento.
 const { hashtags } = require("../lib/util");
-module.exports = (app, { vivo, mod, infoExtra, sec, path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates }) => {
+module.exports = (app, { imgs, vivo, mod, infoExtra, sec, path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates }) => {
 // ---- Estado público (solo cifras, sin datos de cuentas) ----
 app.get("/api/info", async (req, res) => {
   const r = (await q("SELECT COUNT(*) AS total, COALESCE(SUM(connected), 0) AS online FROM player"))[0];
@@ -117,7 +117,7 @@ app.delete("/api/posts/:id", async (req, res) => {
   if (!p) return res.status(404).json({ error: "No existe" });
   if (u.admin_level < MIN_POST && !((p.type === "post" || p.type === "story" || p.type === "reel") && p.author === u.name)) return res.status(403).json({ error: "No tienes permiso" }); // el staff borra cualquiera; cada jugador, solo lo suyo
   const im = /^\/img\/(\d+)$/.exec(p?.body || "");
-  if (im) await q("DELETE FROM web_images WHERE id = ?", [im[1]]);
+  if (im) await imgs.del(im[1]);
   await removePosts([id]);
   if (p.author !== u.name) await mod.log(u, "borrar publicación", `${p.type} ${id}`, `${p.author}: ${String(p.body || "").slice(0, 200)}`);
   res.json({ ok: true });
@@ -202,8 +202,8 @@ app.post("/api/photos", express.json({ limit: "1500kb" }), async (req, res) => {
   const buf = Buffer.from(m[2], "base64");
   const magic = (m[1] === "jpeg" && buf[0] === 0xff && buf[1] === 0xd8) || (m[1] === "png" && buf[0] === 0x89 && buf[1] === 0x50) || (m[1] === "webp" && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP");
   if (!magic || buf.length > 900 * 1024) return res.status(400).json({ error: "Imagen no válida o muy pesada (máx. 900 KB)" });
-  const r = await q("INSERT INTO web_images (mime, data) VALUES (?, ?)", ["image/" + m[1], buf]);
-  await q("INSERT INTO web_posts (type, title, body, author) VALUES ('photo', ?, ?, ?)", [title, `/img/${r.insertId}`, u.name]);
+  const iid = await imgs.put("image/" + m[1], buf);
+  await q("INSERT INTO web_posts (type, title, body, author) VALUES ('photo', ?, ?, ?)", [title, `/img/${iid}`, u.name]);
   res.json({ ok: true });
 });
 app.get("/img/:id(\\d+)", async (req, res) => {
@@ -215,7 +215,7 @@ app.get("/img/:id(\\d+)", async (req, res) => {
     const ok = uid && (cm.room ? (await q("SELECT 1 FROM web_room_members WHERE room_id = ? AND player_id = ?", [cm.room, uid])).length > 0 : Number(cm.a) === uid || Number(cm.b) === uid);
     if (!ok) return res.status(404).end();
   }
-  const r = (await q("SELECT mime, data FROM web_images WHERE id = ?", [id]))[0];
+  const r = await imgs.get(id);
   if (!r) return res.status(404).end();
   const size = r.data.length, head = { "Content-Type": r.mime, "Cache-Control": cm ? "private, max-age=604800, immutable" : "public, max-age=604800, immutable", "Content-Security-Policy": "default-src 'none'; sandbox", "Content-Disposition": "inline", "Accept-Ranges": "bytes" };
   const rg = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || ""); // los audios en iPhone se piden por rangos
