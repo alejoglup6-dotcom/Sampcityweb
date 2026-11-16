@@ -1,0 +1,25 @@
+{
+ "status": 200,
+ "body": [
+  {
+   "id": 7,
+   "type": "faq",
+   "title": "¿Cómo juego?",
+   "body": "Descarga el launcher y entra.",
+   "author": "Caro_Diaz",
+   "skin": 29,
+   "created_at": "2026-11-16 17:45:38",
+   "vis": 0,
+   "share_id": null,
+   "edited_at": null,
+   "group_id": null,
+   "gname": null,
+   "likes": "0",
+   "comments": "0",
+   "mine": 0,
+   "rk": null,
+   "media": [],
+   "tags": []
+  }
+ ]
+}

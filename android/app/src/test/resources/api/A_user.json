@@ -1,0 +1,37 @@
+{
+ "status": 200,
+ "body": {
+  "name": "Ana_Lopez",
+  "skin": 7,
+  "rango": "Ciudadano",
+  "level": 1,
+  "rep": 1,
+  "time_playing": 0,
+  "reg_date": "2026-11-16 17:45:37",
+  "last_connection": "2026-11-16 17:45:37",
+  "connected": 0,
+  "posts": 2,
+  "reels": 0,
+  "likes": 2,
+  "friends": 1,
+  "fstate": "self",
+  "fl": [
+   {
+    "name": "Beto_Ruiz",
+    "skin": 170,
+    "connected": 1
+   }
+  ],
+  "avatar": "",
+  "cover": "",
+  "bio": "Conductora de taxi en Los Santos 🚕",
+  "city": "Los Santos",
+  "job": "Taxista",
+  "link": "https://example.com",
+  "bday": "",
+  "pin": 0,
+  "followers": 0,
+  "following": false,
+  "mutual": 0
+ }
+}

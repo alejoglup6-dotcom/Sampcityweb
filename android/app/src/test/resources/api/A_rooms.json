@@ -1,0 +1,16 @@
+{
+ "status": 200,
+ "body": [
+  {
+   "id": 1,
+   "name": "Los taxistas",
+   "members": 3,
+   "body": "Buenas a todos",
+   "from": "Beto_Ruiz",
+   "mine": false,
+   "at": "2026-11-16 17:45:38",
+   "mid": 3,
+   "unread": 1
+  }
+ ]
+}

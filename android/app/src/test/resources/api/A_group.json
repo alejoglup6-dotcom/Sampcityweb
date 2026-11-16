@@ -1,0 +1,30 @@
+{
+ "status": 200,
+ "body": {
+  "id": 1,
+  "name": "Taxistas LS",
+  "about": "Grupo de taxistas",
+  "priv": 0,
+  "members": 2,
+  "posts": 0,
+  "created_at": "2026-11-16 17:45:38",
+  "role": 2,
+  "isOwner": true,
+  "open": true,
+  "ms": [
+   {
+    "name": "Ana_Lopez",
+    "skin": 7,
+    "connected": 0,
+    "role": 2
+   },
+   {
+    "name": "Beto_Ruiz",
+    "skin": 170,
+    "connected": 1,
+    "role": 1
+   }
+  ],
+  "pend": []
+ }
+}

@@ -1,0 +1,36 @@
+{
+ "status": 200,
+ "body": {
+  "id": 1,
+  "type": "post",
+  "title": "",
+  "body": "Primer día de turno #taxi #losantos con @Beto_Ruiz https://example.com/noticia",
+  "author": "Ana_Lopez",
+  "skin": 7,
+  "created_at": "2026-11-16 17:45:37",
+  "vis": 0,
+  "share_id": null,
+  "edited_at": null,
+  "group_id": null,
+  "gname": null,
+  "likes": "2",
+  "comments": "3",
+  "mine": 0,
+  "rk": "1,2",
+  "media": [
+   {
+    "id": 1,
+    "kind": "img",
+    "thumb": null
+   },
+   {
+    "id": 2,
+    "kind": "img",
+    "thumb": null
+   }
+  ],
+  "tags": [
+   "Beto_Ruiz"
+  ]
+ }
+}

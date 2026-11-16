@@ -1,0 +1,6 @@
+-dontobfuscate
+-dontoptimize
+-keep class com.sampcity.social.data.** { *; }
+-keepattributes *Annotation*, InnerClasses, Signature
+-dontwarn org.slf4j.**
+-dontwarn javax.annotation.**

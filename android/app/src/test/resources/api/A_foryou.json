@@ -1,0 +1,139 @@
+{
+ "status": 200,
+ "body": [
+  {
+   "id": 1,
+   "type": "post",
+   "title": "",
+   "body": "Primer día de turno #taxi #losantos con @Beto_Ruiz https://example.com/noticia",
+   "author": "Ana_Lopez",
+   "skin": 7,
+   "created_at": "2026-11-16 17:45:37",
+   "vis": 0,
+   "share_id": null,
+   "edited_at": null,
+   "group_id": null,
+   "gname": null,
+   "likes": "2",
+   "comments": "3",
+   "mine": 0,
+   "rk": "1,2",
+   "media": [
+    {
+     "id": 1,
+     "kind": "img",
+     "thumb": null
+    },
+    {
+     "id": 2,
+     "kind": "img",
+     "thumb": null
+    }
+   ],
+   "tags": [
+    "Beto_Ruiz"
+   ]
+  },
+  {
+   "id": 3,
+   "type": "post",
+   "title": "",
+   "body": "Compartiendo esto",
+   "author": "Beto_Ruiz",
+   "skin": 170,
+   "created_at": "2026-11-16 17:45:37",
+   "vis": 0,
+   "share_id": 1,
+   "edited_at": null,
+   "group_id": null,
+   "gname": null,
+   "likes": "0",
+   "comments": "0",
+   "mine": 0,
+   "rk": null,
+   "media": [],
+   "tags": [],
+   "shared": {
+    "id": 1,
+    "type": "post",
+    "title": "",
+    "body": "Primer día de turno #taxi #losantos con @Beto_Ruiz https://example.com/noticia",
+    "author": "Ana_Lopez",
+    "skin": 7,
+    "created_at": "2026-11-16 17:45:37",
+    "media": [
+     {
+      "id": 1,
+      "kind": "img",
+      "thumb": null
+     },
+     {
+      "id": 2,
+      "kind": "img",
+      "thumb": null
+     }
+    ],
+    "tags": [
+     "Beto_Ruiz"
+    ]
+   }
+  },
+  {
+   "id": 2,
+   "type": "post",
+   "title": "",
+   "body": "¿Quién se anima a la carrera de esta noche?",
+   "author": "Beto_Ruiz",
+   "skin": 170,
+   "created_at": "2026-11-16 17:45:37",
+   "vis": 0,
+   "share_id": null,
+   "edited_at": null,
+   "group_id": null,
+   "gname": null,
+   "likes": "0",
+   "comments": "0",
+   "mine": 0,
+   "rk": null,
+   "media": [],
+   "tags": [],
+   "poll": {
+    "opts": [
+     {
+      "t": "Yo voy",
+      "n": 1
+     },
+     {
+      "t": "No puedo",
+      "n": 0
+     },
+     {
+      "t": "Tal vez",
+      "n": 0
+     }
+    ],
+    "mine": -1
+   }
+  },
+  {
+   "id": 4,
+   "type": "post",
+   "title": "",
+   "body": "Solo amigos: mi nueva casa",
+   "author": "Ana_Lopez",
+   "skin": 7,
+   "created_at": "2026-11-16 17:45:37",
+   "vis": 1,
+   "share_id": null,
+   "edited_at": null,
+   "group_id": null,
+   "gname": null,
+   "likes": "0",
+   "comments": "0",
+   "mine": 0,
+   "rk": null,
+   "media": [],
+   "tags": []
+  }
+ ]
+}

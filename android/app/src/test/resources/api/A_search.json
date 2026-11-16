@@ -1,0 +1,15 @@
+{
+ "status": 200,
+ "body": {
+  "people": [
+   {
+    "name": "Ana_Lopez",
+    "skin": 7,
+    "connected": 0,
+    "level": 1
+   }
+  ],
+  "posts": [],
+  "market": []
+ }
+}

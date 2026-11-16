@@ -1,0 +1,17 @@
+{
+ "status": 200,
+ "body": {
+  "now": "2026-11-16 17:45:38",
+  "total": 4,
+  "online": 1,
+  "ip": "",
+  "skinUrl": "https://assets.open.mp/assets/images/skins/{id}.png",
+  "videoMax": 25,
+  "reelMax": 60,
+  "reelSecs": 90,
+  "turnstile": "",
+  "verified": [],
+  "mail": false,
+  "push": true
+ }
+}

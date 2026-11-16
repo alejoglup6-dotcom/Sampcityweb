@@ -1,0 +1,45 @@
+{
+ "status": 200,
+ "body": {
+  "room": {
+   "id": 1,
+   "name": "Los taxistas",
+   "owner": true,
+   "members": [
+    {
+     "name": "Ana_Lopez",
+     "skin": 7,
+     "connected": 0,
+     "owner": true
+    },
+    {
+     "name": "Beto_Ruiz",
+     "skin": 170,
+     "connected": 1,
+     "owner": false
+    },
+    {
+     "name": "Caro_Diaz",
+     "skin": 29,
+     "connected": 0,
+     "owner": false
+    }
+   ]
+  },
+  "msgs": [
+   {
+    "id": 3,
+    "mine": false,
+    "body": "Buenas a todos",
+    "img": "",
+    "aud": "",
+    "dur": 0,
+    "at": "2026-11-16 17:45:38",
+    "rx": {},
+    "myrx": 0,
+    "from": "Beto_Ruiz",
+    "skin": 170
+   }
+  ]
+ }
+}

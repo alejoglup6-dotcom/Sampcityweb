@@ -1,0 +1,19 @@
+{
+ "status": 200,
+ "body": [
+  {
+   "name": "Caro_Diaz",
+   "skin": 29,
+   "created_at": "2026-11-16 17:45:37",
+   "mutual": 0,
+   "faces": []
+  },
+  {
+   "name": "Dani_Gomez",
+   "skin": 170,
+   "created_at": "2026-11-16 17:45:37",
+   "mutual": 0,
+   "faces": []
+  }
+ ]
+}

@@ -1,0 +1,16 @@
+{
+ "status": 200,
+ "body": [
+  {
+   "id": 1,
+   "kind": "user",
+   "target": 4,
+   "reason": "spam",
+   "note": "x",
+   "created_at": "2026-11-16 17:45:38",
+   "reporter": "Ana_Lopez",
+   "info": "Dani_Gomez",
+   "href": "/u/Dani_Gomez"
+  }
+ ]
+}

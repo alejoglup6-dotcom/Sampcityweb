@@ -1,0 +1,55 @@
+{
+ "status": 200,
+ "body": {
+  "totals": {
+   "jugadores": 4,
+   "conectados": 1,
+   "publicaciones": 4,
+   "reels": 0,
+   "comentarios": 3,
+   "mensajes": 3,
+   "grupos": 1,
+   "anuncios": 0,
+   "reportes": 1,
+   "suspendidos": 0,
+   "activos7": 4,
+   "medios_mb": 0
+  },
+  "series": {
+   "registros": [
+    {
+     "d": "2026-11-16",
+     "n": 4
+    }
+   ],
+   "publicaciones": [
+    {
+     "d": "2026-11-16",
+     "n": 5
+    }
+   ],
+   "comentarios": [
+    {
+     "d": "2026-11-16",
+     "n": 3
+    }
+   ],
+   "mensajes": [
+    {
+     "d": "2026-11-16",
+     "n": 3
+    }
+   ]
+  },
+  "top": [
+   {
+    "name": "Ana_Lopez",
+    "n": "2"
+   },
+   {
+    "name": "Beto_Ruiz",
+    "n": "2"
+   }
+  ]
+ }
+}

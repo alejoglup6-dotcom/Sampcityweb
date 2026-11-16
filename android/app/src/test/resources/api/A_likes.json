@@ -1,0 +1,15 @@
+{
+ "status": 200,
+ "body": [
+  {
+   "name": "Caro_Diaz",
+   "skin": 29,
+   "kind": 1
+  },
+  {
+   "name": "Beto_Ruiz",
+   "skin": 170,
+   "kind": 2
+  }
+ ]
+}

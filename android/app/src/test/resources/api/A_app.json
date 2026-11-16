@@ -1,0 +1,12 @@
+{
+ "status": 200,
+ "body": {
+  "available": true,
+  "version": "1.0.0",
+  "code": 1,
+  "size": 837647,
+  "sha256": "4579d483d0010c2ac61ccc6316f72552fb8277c48ea93c441e263357c9261743",
+  "updated": "2026-11-16T17:41:59.315Z",
+  "minAndroid": "7.0"
+ }
+}

@@ -1,0 +1,104 @@
+{
+ "status": 200,
+ "body": [
+  {
+   "id": 14,
+   "type": "news",
+   "post_id": 6,
+   "body": "Bienvenidos a la red social",
+   "seen": 0,
+   "created_at": "2026-11-16 17:45:38",
+   "actor": "Caro_Diaz",
+   "skin": 29,
+   "ptype": "news"
+  },
+  {
+   "id": 11,
+   "type": "comment",
+   "post_id": 1,
+   "body": "Yo también quiero",
+   "seen": 0,
+   "created_at": "2026-11-16 17:45:38",
+   "actor": "Caro_Diaz",
+   "skin": 29,
+   "ptype": "post"
+  },
+  {
+   "id": 9,
+   "type": "mention_c",
+   "post_id": 1,
+   "body": "¡Qué buen turno! @Ana_Lopez",
+   "seen": 0,
+   "created_at": "2026-11-16 17:45:38",
+   "actor": "Beto_Ruiz",
+   "skin": 170,
+   "ptype": "post"
+  },
+  {
+   "id": 8,
+   "type": "like",
+   "post_id": 1,
+   "body": "",
+   "seen": 0,
+   "created_at": "2026-11-16 17:45:38",
+   "actor": "Caro_Diaz",
+   "skin": 29,
+   "ptype": "post"
+  },
+  {
+   "id": 7,
+   "type": "like",
+   "post_id": 1,
+   "body": "",
+   "seen": 0,
+   "created_at": "2026-11-16 17:45:37",
+   "actor": "Beto_Ruiz",
+   "skin": 170,
+   "ptype": "post"
+  },
+  {
+   "id": 6,
+   "type": "share",
+   "post_id": 3,
+   "body": "Compartiendo esto",
+   "seen": 0,
+   "created_at": "2026-11-16 17:45:37",
+   "actor": "Beto_Ruiz",
+   "skin": 170,
+   "ptype": "post"
+  },
+  {
+   "id": 4,
+   "type": "friend_req",
+   "post_id": null,
+   "body": "",
+   "seen": 0,
+   "created_at": "2026-11-16 17:45:37",
+   "actor": "Dani_Gomez",
+   "skin": 170,
+   "ptype": null
+  },
+  {
+   "id": 3,
+   "type": "friend_req",
+   "post_id": null,
+   "body": "",
+   "seen": 0,
+   "created_at": "2026-11-16 17:45:37",
+   "actor": "Caro_Diaz",
+   "skin": 29,
+   "ptype": null
+  },
+  {
+   "id": 2,
+   "type": "friend_acc",
+   "post_id": null,
+   "body": "",
+   "seen": 0,
+   "created_at": "2026-11-16 17:45:37",
+   "actor": "Beto_Ruiz",
+   "skin": 170,
+   "ptype": null
+  }
+ ]
+}

@@ -1,0 +1,33 @@
+{
+ "status": 200,
+ "body": [
+  {
+   "name": "Ana_Lopez",
+   "level": 1,
+   "rep": 1,
+   "time_playing": 0,
+   "skin": 7
+  },
+  {
+   "name": "Beto_Ruiz",
+   "level": 1,
+   "rep": 1,
+   "time_playing": 0,
+   "skin": 170
+  },
+  {
+   "name": "Caro_Diaz",
+   "level": 1,
+   "rep": 1,
+   "time_playing": 0,
+   "skin": 29
+  },
+  {
+   "name": "Dani_Gomez",
+   "level": 1,
+   "rep": 1,
+   "time_playing": 0,
+   "skin": 170
+  }
+ ]
+}

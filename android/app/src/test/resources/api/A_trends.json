@@ -1,0 +1,13 @@
+{
+ "status": 200,
+ "body": [
+  {
+   "tag": "taxi",
+   "n": 1
+  },
+  {
+   "tag": "losantos",
+   "n": 1
+  }
+ ]
+}

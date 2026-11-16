@@ -1,7 +1,11 @@
-// App Android de SampCity: una Trusted Web Activity (TWA). Abre la web en pantalla completa con Chrome, sin barra de direcciones,
-// con el mismo inicio de sesión, notificaciones push y permisos (micrófono, cámara, archivos) que la web.
-// Dominio: -PWEB_HOST=otro.dominio (por defecto sampcity.app). Versión: súbela en cada APK nuevo (versionCode siempre mayor).
-plugins { id 'com.android.application' }
+// App Android NATIVA de SampCity (Kotlin + Jetpack Compose). Usa la misma API que la web (/api/…) con la misma cuenta del juego.
+// Dominio de la API: -PWEB_HOST=otro.dominio (por defecto sampcity.app). Versión: sube versionCode/versionName en cada APK nuevo.
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+}
 
 def webHost = (project.findProperty('WEB_HOST') ?: 'sampcity.app').toString()
 def ksFile = rootProject.file('keystore.properties')
@@ -16,13 +20,13 @@ android {
         applicationId 'com.sampcity.social'
         minSdk 24
         targetSdk 35
-        versionCode 1
-        versionName '1.0.0'
-        resValue 'string', 'host', webHost
-        resValue 'string', 'default_url', "https://${webHost}/"
-        // Digital Asset Links: la app declara que la web le pertenece (la web lo confirma en /.well-known/assetlinks.json)
-        resValue 'string', 'asset_statements', ('[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"web","site":"https://' + webHost + '"}}]').replace('"', '\\"')
+        versionCode 2
+        versionName '2.0.0'
+        buildConfigField 'String', 'BASE_URL', "\"https://${webHost}\""
+        manifestPlaceholders = [webHost: webHost]
     }
+
+    buildFeatures { compose true; buildConfig true }
 
     signingConfigs {
         release {
@@ -37,8 +41,15 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            // Solo se quita lo que no se usa (los iconos extendidos pesan mucho); sin ofuscar ni optimizar, para no romper nada
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             signingConfig ksFile.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+        debug {
+            // En el emulador la API local está en http://10.0.2.2:3000 (el servidor de pruebas)
+            buildConfigField 'String', 'BASE_URL', '"http://10.0.2.2:3000"'
         }
     }
 
@@ -46,9 +57,35 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    kotlinOptions { jvmTarget = '17' }
     lint { abortOnError false }
+    testOptions { unitTests { includeAndroidResources = true } }
 }
 
 dependencies {
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+    def bom = platform('androidx.compose:compose-bom:2024.10.01')
+    implementation bom
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.material:material-icons-extended'
+    implementation 'androidx.activity:activity-compose:1.9.3'
+    implementation 'androidx.navigation:navigation-compose:2.8.4'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7'
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.7'
+    implementation 'androidx.core:core-ktx:1.15.0'
+    implementation 'androidx.exifinterface:exifinterface:1.3.7'
+    implementation 'androidx.browser:browser:1.8.0'
+    implementation 'androidx.work:work-runtime-ktx:2.9.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.squareup.okhttp3:okhttp-sse:4.12.0'
+    implementation 'io.coil-kt:coil-compose:2.7.0'
+    implementation 'androidx.media3:media3-exoplayer:1.4.1'
+    implementation 'androidx.media3:media3-ui:1.4.1'
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0'
 }

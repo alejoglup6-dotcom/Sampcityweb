@@ -1,0 +1,11 @@
+{
+ "status": 200,
+ "body": [
+  {
+   "name": "Beto_Ruiz",
+   "skin": 170,
+   "connected": 1,
+   "state": "friends"
+  }
+ ]
+}

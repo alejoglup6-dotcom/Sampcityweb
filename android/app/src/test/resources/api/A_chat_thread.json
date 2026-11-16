@@ -1,0 +1,44 @@
+{
+ "status": 200,
+ "body": {
+  "peer": {
+   "name": "Beto_Ruiz",
+   "skin": 170,
+   "connected": 1
+  },
+  "seenTo": 0,
+  "typing": false,
+  "blocked": false,
+  "msgs": [
+   {
+    "id": 1,
+    "mine": true,
+    "body": "Hola Beto",
+    "img": "",
+    "aud": "",
+    "dur": 0,
+    "at": "2026-11-16 17:45:38",
+    "rx": {
+     "2": 1
+    },
+    "myrx": 0
+   },
+   {
+    "id": 2,
+    "mine": false,
+    "body": "Hola Ana, ¿cómo vas?",
+    "img": "",
+    "aud": "",
+    "dur": 0,
+    "at": "2026-11-16 17:45:38",
+    "rx": {},
+    "myrx": 0,
+    "reply": {
+     "id": 1,
+     "from": "Ana_Lopez",
+     "body": "Hola Beto"
+    }
+   }
+  ]
+ }
+}
