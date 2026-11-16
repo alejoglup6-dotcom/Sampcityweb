@@ -1,0 +1,32 @@
+name: Pruebas
+on: [push, pull_request]
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env: { MARIADB_ROOT_PASSWORD: root, MARIADB_DATABASE: sc }
+        ports: ["3306:3306"]
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      BASE_URL: http://localhost:3000
+      SESSION_SECRET: solo-para-pruebas-0123456789-abcdef
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: sc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Sintaxis
+        run: for f in server.js store.js lib/*.js routes/*.js scripts/*.js public/sw.js public/assets/js/*.js public/assets/js/pages/*.js; do node --check "$f"; done
+      - name: Pruebas unitarias
+        run: npm test
+      - name: Prueba de integración
+        run: |
+          mysql -h127.0.0.1 -uroot -proot sc < test/esquema-juego.sql
+          node server.js & sleep 6
+          node test/smoke.js

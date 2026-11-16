@@ -119,3 +119,17 @@ Cada sección es una página independiente (archivo + URL propia), ya no van tod
 - `data/launcher-cache.json` es la lista de archivos del juego (carpeta, nombre y tamaño). Solo se manda si `LAUNCHER_CDN` apunta a donde están subidos (p. ej. un bucket de Cloudflare R2); sin eso la app no descarga nada y usa los que ya haya en el teléfono.
 - Descarga de la app: `sampcity.app/descargar` (o `/SampCity.apk`) lleva al `.apk` de `LAUNCHER_CDN/SampCity.apk`.
 - Opcionales: `LAUNCHER_VERSION` (si es mayor que la de la app, ofrece actualizarla) y `LAUNCHER_APK_URL` (dónde está el `.apk` nuevo).
+
+## Red social, bloque 4: seguridad, tiempo real y moderación
+- **Privacidad de medios:** `/img/:id` y `/media/:id` comprueban quién mira. Fotos y audios de chats: solo los participantes. Fotos y videos de publicaciones «amigos», «solo yo» o de grupos privados: solo quien puede ver la publicación.
+- **Sesiones:** cada inicio de sesión queda en `web_sessions`; en Configuración se listan y se cierran una a una. Cambiar la contraseña cierra las demás. Contraseña: 6 a 18 caracteres en todas partes.
+- **Verificación en dos pasos** (app de códigos, TOTP), solo para la web. **Recuperar contraseña** por correo en `/recuperar` (necesita `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`; sin eso el enlace lleva a Discord).
+- **Tus datos:** descargar todo en JSON y eliminar el contenido de la red social (la cuenta del juego no se toca).
+- **Tiempo real:** `/api/stream` (Server-Sent Events) entrega al instante mensajes, «escribiendo», «visto», reacciones y la campana. Si el hosting corta la conexión, la web sigue sondeando como antes. Requiere un solo proceso de Node.
+- **Push:** `public/sw.js` + paquete `web-push`. Se activa por dispositivo en Configuración → Notificaciones. Las claves se generan solas (tabla `web_kv`) o se ponen en `VAPID_PUBLIC` / `VAPID_PRIVATE`. Necesita HTTPS.
+- **Chat:** chats de grupo (hasta 30), responder a un mensaje, reacciones, audios de hasta 60 s y búsqueda en mensajes.
+- **Feed:** pestañas Amigos / Para ti (por interacción y recencia), tendencias de #etiquetas, enlaces clicables con vista previa y paginación por cursor.
+- **Moderación** (`/panel`, staff): estadísticas, suspensiones, palabras no permitidas, verificados y registro de acciones del staff.
+- **Medios en disco:** con `MEDIA_DIR` las fotos y videos nuevos van a esa carpeta. `node scripts/medios-a-disco.js` mueve los que ya están en la base.
+- **Tablas nuevas** (se crean solas): `web_sessions`, `web_resets`, `web_kv`, `web_push`, `web_bans`, `web_badwords`, `web_modlog`, `web_verified`, `web_rooms`, `web_room_members`, `web_msg_rx`, `web_previews`. Columnas nuevas en `web_msgs`, `web_media` y `web_settings`, e índices en `web_posts`, `web_comments`, `web_likes` y `web_msgs`.
+- **Pruebas:** `npm test` (funciones puras) y `node test/smoke.js` (API completa contra una base de pruebas vacía; nunca contra la real). GitHub Actions corre ambas en cada push.
