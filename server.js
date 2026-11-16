@@ -98,10 +98,11 @@ app.post("/api/tebex/webhook",
 );
 
 // 17. Límite de la API por IP + peticiones que cambian datos: mismo origen y JSON (así otra web no puede lanzarlas)
+const RATE = Math.max(1, Number(E.RATE_MULT) || 1); // solo para pruebas automáticas: multiplica el límite de peticiones por IP (en producción no se define)
 app.use("/api", (req, res, next) => {
   if (req.tebexWebhook) return next();
   res.set("Cache-Control", "no-store");
-  if (!hit("a|" + req.ip, 300, 60000) || (req.method !== "GET" && !hit("w|" + req.ip, 60, 60000))) return res.set("Retry-After", "60").status(429).json({ error: "Demasiadas peticiones. Espera un momento." });
+  if (!hit("a|" + req.ip, 300 * RATE, 60000) || (req.method !== "GET" && !hit("w|" + req.ip, 60 * RATE, 60000))) return res.set("Retry-After", "60").status(429).json({ error: "Demasiadas peticiones. Espera un momento." });
   if (req.method !== "GET") {
     const o = req.headers.origin;
     if (o && o !== ORIGIN && o !== `${req.protocol}://${req.get("host")}`) return res.status(403).json({ error: "Origen no permitido" });

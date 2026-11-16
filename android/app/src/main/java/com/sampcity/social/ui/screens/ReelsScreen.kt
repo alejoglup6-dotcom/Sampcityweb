@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -163,7 +164,7 @@ private fun ReelUploadDialog(onDismiss: () -> Unit, onDone: () -> Unit) {
     var uri by remember { mutableStateOf<Uri?>(null) }
     var caption by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    val info = app.session.info.value
+    val info by app.session.info.collectAsStateWithLifecycle()
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri = it ?: uri }
     AlertDialog(onDismissRequest = { if (!busy) onDismiss() }, title = { Text("Subir reel") }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

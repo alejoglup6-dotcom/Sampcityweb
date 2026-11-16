@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -153,7 +154,9 @@ fun MainApp(initialRoute: String?) {
                     }
                 },
             ) { inner ->
-                NavHost(nav, startDestination = "home", modifier = Modifier.padding(bottom = inner.calculateBottomPadding())) {
+                val bottom = inner.calculateBottomPadding()
+                // la barra de abajo ya cubre el borde del sistema: las pantallas no lo vuelven a sumar
+                NavHost(nav, startDestination = "home", modifier = Modifier.padding(bottom = bottom).consumeWindowInsets(androidx.compose.foundation.layout.PaddingValues(bottom = bottom))) {
                     composable("home") { HomeScreen() }
                     composable("reels?start={start}&author={author}", arguments = listOf(navArgument("start") { type = NavType.StringType; nullable = true }, navArgument("author") { type = NavType.StringType; nullable = true })) {
                         ReelsScreen(it.arguments?.getString("start")?.toIntOrNull(), it.arguments?.getString("author"))

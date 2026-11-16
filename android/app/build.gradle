@@ -59,8 +59,15 @@ android {
     }
     kotlinOptions { jvmTarget = '17' }
     lint { abortOnError false }
-    testOptions { unitTests { includeAndroidResources = true } }
+    if (project.hasProperty('screenshots')) sourceSets.test.java.srcDir 'src/screenshotTest/java'
+    testOptions { unitTests { includeAndroidResources = true; all { systemProperty 'sampcity.api', System.getProperty('sampcity.api') ?: 'http://localhost:3000'; systemProperty 'sampcity.shots', System.getProperty('sampcity.shots') ?: ''
+        // Capturas de pantalla (opcional): ./gradlew testDebugUnitTest -Pscreenshots -Dsampcity.shots=/carpeta  (Robolectric baja sus jars de Maven Central)
+        if (project.hasProperty('screenshots')) { dependsOn 'copyRobolectricDeps'; systemProperty 'robolectric.offline', 'true'; systemProperty 'robolectric.dependency.dir', "${project.buildDir}/robolectric-deps" }
+        } } }
 }
+
+configurations { robolectricDeps }
+tasks.register('copyRobolectricDeps', Copy) { from configurations.robolectricDeps; into "${project.buildDir}/robolectric-deps" }
 
 dependencies {
     def bom = platform('androidx.compose:compose-bom:2024.10.01')
@@ -89,4 +96,14 @@ dependencies {
 
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0'
+
+    // Capturas de pantalla de las pantallas reales (opcional, ver ScreenshotTest): -Pscreenshots
+    if (project.hasProperty('screenshots')) {
+        robolectricDeps 'org.robolectric:android-all-instrumented:14-robolectric-10818077-i7'
+        robolectricDeps 'org.robolectric:nativeruntime-dist-compat:1.0.12'
+        testImplementation 'org.robolectric:robolectric:4.13'
+        testImplementation 'androidx.test:core:1.6.1'
+        testImplementation 'androidx.compose.ui:ui-test-junit4'
+        debugImplementation 'androidx.compose.ui:ui-test-manifest'
+    }
 }

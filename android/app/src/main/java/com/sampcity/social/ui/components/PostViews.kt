@@ -202,7 +202,7 @@ private val previewCache = HashMap<String, PreviewData?>()
 fun LinkPreview(url: String, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
     val data by produceState<PreviewData?>(previewCache[url], url) {
-        if (!previewCache.containsKey(url)) value = runCatching { SampApp.instance.repo.preview(url) }.getOrNull()?.takeIf { it.title.isNotBlank() }.also { previewCache[url] = it }
+        value = if (previewCache.containsKey(url)) previewCache[url] else runCatching { SampApp.instance.repo.preview(url) }.getOrNull()?.takeIf { it.title.isNotBlank() }.also { previewCache[url] = it }
     }
     val d = data ?: return
     Card(modifier.fillMaxWidth().clickable { openWeb(ctx, url) }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {

@@ -31,13 +31,13 @@ class SampApp : Application(), ImageLoaderFactory {
         instance = this
         prefs = Prefs(this)
         themeMode.value = prefs.theme
-        api = Api(BuildConfig.BASE_URL, PersistentCookieJar(getSharedPreferences("session", Context.MODE_PRIVATE)))
+        api = Api(System.getProperty("sampcity.api") ?: BuildConfig.BASE_URL, PersistentCookieJar(getSharedPreferences("session", Context.MODE_PRIVATE)))
         repo = Repo(api)
         session = Session(this, repo, api)
         live = Live(api, session)
         api.onUnauthorized = { session.expired() }
         createChannels()
-        NotifWorker.schedule(this, prefs.bgAlerts)
+        runCatching { NotifWorker.schedule(this, prefs.bgAlerts) }
     }
 
     private fun createChannels() {
