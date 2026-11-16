@@ -28,9 +28,9 @@ app.get("/api/posts", async (req, res) => {
   }
   if (req.query.type === "feed") where.push("(p.type = 'post' OR (p.type = 'story' AND p.created_at > NOW() - INTERVAL 24 HOUR))"); else if (type) { where.push("p.type = ?"); wp.push(type); if (type === "story") where.push("p.created_at > NOW() - INTERVAL 24 HOUR"); } // las historias duran 24 h
   if (/^\w{1,24}$/.test(au)) { where.push("p.author = ?"); wp.push(au); }
-  res.json(await attach(await q(`SELECT p.id, p.type, p.title, p.body, p.author, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, p.created_at, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine FROM web_posts p ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY p.id DESC LIMIT ? OFFSET ?`, [uid, ...wp, paged ? per + 1 : per, pg * per])));
+  res.json(await attach(await q(`SELECT p.id, p.type, p.title, p.body, p.author, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, p.created_at, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COALESCE(MAX(l.kind), 0) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine, (SELECT GROUP_CONCAT(DISTINCT l.kind ORDER BY l.kind) FROM web_likes l WHERE l.post_id = p.id) AS rk FROM web_posts p ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY p.id DESC LIMIT ? OFFSET ?`, [uid, ...wp, paged ? per + 1 : per, pg * per])));
 });
-const ONE = (extra = "") => `SELECT p.id, p.type, p.title, p.body, p.author, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, p.created_at, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine FROM web_posts p WHERE p.id = ? ${extra}`;
+const ONE = (extra = "") => `SELECT p.id, p.type, p.title, p.body, p.author, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, p.created_at, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COALESCE(MAX(l.kind), 0) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine, (SELECT GROUP_CONCAT(DISTINCT l.kind ORDER BY l.kind) FROM web_likes l WHERE l.post_id = p.id) AS rk FROM web_posts p WHERE p.id = ? ${extra}`;
 const STORY_LIVE = "AND (p.type <> 'story' OR p.created_at > NOW() - INTERVAL 24 HOUR)";
 app.get("/api/posts/:id(\\d+)", async (req, res) => {
   const id = pid(req.params.id), uid = sessionId(req) || 0;
@@ -50,6 +50,15 @@ app.post("/api/posts", async (req, res) => {
   res.json({ ok: true });
 });
 app.put("/api/posts/:id", async (req, res) => {
+  const own = pid(req.params.id) ? (await q("SELECT author, type FROM web_posts WHERE id = ?", [pid(req.params.id)]))[0] : null;
+  if (own && own.type === "post") { // publicaciones del muro: las edita su autor (o el staff); solo el texto
+    const me_ = await me(req); if (!me_) return res.status(401).json({ error: "Inicia sesión" });
+    if (own.author !== me_.name && !(Number(me_.admin_level) >= MIN_POST)) return res.status(403).json({ error: "No tienes permiso" });
+    const text = str(req.body.body).trim().slice(0, 4000);
+    if (!text) return res.status(400).json({ error: "Escribe algo" });
+    await q("UPDATE web_posts SET body = ? WHERE id = ?", [text, pid(req.params.id)]);
+    return res.json({ ok: true });
+  }
   const u = await staffOnly(req, res); if (!u) return;
   const title = str(req.body.title).trim().slice(0, 120), body = str(req.body.body).slice(0, 4000);
   if (!title || !body || !pid(req.params.id)) return res.status(400).json({ error: "Faltan datos" });
@@ -95,7 +104,8 @@ app.get("/api/user/:name", async (req, res) => {
   const posts = (await q("SELECT COUNT(*) AS n FROM web_posts WHERE author = ? AND type = 'post'", [r.name]))[0].n;
   const reels = (await q("SELECT COUNT(*) AS n FROM web_posts WHERE author = ? AND type = 'reel'", [r.name]))[0].n;
   const likes = (await q("SELECT COUNT(*) AS n FROM web_likes l JOIN web_posts p ON p.id = l.post_id WHERE p.author = ? AND p.type = 'post'", [r.name]))[0].n;
-  res.json({ name: r.name, skin: r.skin, rango: ADMIN_LEVELS[r.admin_level] || "Ciudadano", level: r.level, rep: r.rep, time_playing: r.time_playing, reg_date: r.reg_date, last_connection: r.last_connection, connected: r.connected, posts: Number(posts), reels: Number(reels), likes: Number(likes), friends: fids.length, fstate, fl }); // sin dinero, teléfono ni datos privados
+  const pf = (await q("SELECT avatar, cover, bio FROM web_profile WHERE player_id = ?", [r.id]))[0] || {}; // foto, banner y biografía personalizados
+  res.json({ name: r.name, skin: r.skin, rango: ADMIN_LEVELS[r.admin_level] || "Ciudadano", level: r.level, rep: r.rep, time_playing: r.time_playing, reg_date: r.reg_date, last_connection: r.last_connection, connected: r.connected, posts: Number(posts), reels: Number(reels), likes: Number(likes), friends: fids.length, fstate, fl, avatar: pf.avatar ? `/img/${pf.avatar}` : "", cover: pf.cover ? `/img/${pf.cover}` : "", bio: pf.bio || "" }); // sin dinero, teléfono ni datos privados
 });
 // ---- Contacto: lo envía cualquiera, solo el staff lo lee ----
 app.post("/api/contact", async (req, res) => {
@@ -140,10 +150,14 @@ app.post("/api/posts/:id/like", async (req, res) => {
   const id = pid(req.params.id);
   const own = await postOwner(id);
   if (!own) return res.status(404).json({ error: "No existe" });
-  const del = await q("DELETE FROM web_likes WHERE post_id = ? AND player_id = ?", [id, u.id]);
-  if (!del.affectedRows) { await q("INSERT IGNORE INTO web_likes (post_id, player_id) VALUES (?, ?)", [id, u.id]); await notify(own.aid, u, "like", id); }
-  else await q("DELETE FROM web_notifs WHERE actor_id = ? AND post_id = ? AND type = 'like'", [u.id, id]); // quitar el me gusta quita el aviso
-  res.json({ liked: !del.affectedRows, likes: Number((await q("SELECT COUNT(*) AS n FROM web_likes WHERE post_id = ?", [id]))[0].n) });
+  // Reacciones: kind 1-6. Repetir la misma la quita; elegir otra la cambia.
+  const kind = Math.min(6, Math.max(1, Math.floor(Number(req.body.kind)) || 1)), cur = (await q("SELECT kind FROM web_likes WHERE post_id = ? AND player_id = ?", [id, u.id]))[0];
+  let mine = kind;
+  if (!cur) { await q("INSERT IGNORE INTO web_likes (post_id, player_id, kind) VALUES (?, ?, ?)", [id, u.id, kind]); await notify(own.aid, u, "like", id); }
+  else if (Number(cur.kind) === kind) { mine = 0; await q("DELETE FROM web_likes WHERE post_id = ? AND player_id = ?", [id, u.id]); await q("DELETE FROM web_notifs WHERE actor_id = ? AND post_id = ? AND type = 'like'", [u.id, id]); } // quitar la reacción quita el aviso
+  else await q("UPDATE web_likes SET kind = ? WHERE post_id = ? AND player_id = ?", [kind, id, u.id]);
+  const st = (await q("SELECT COUNT(*) AS n, GROUP_CONCAT(DISTINCT kind ORDER BY kind) AS rk FROM web_likes WHERE post_id = ?", [id]))[0];
+  res.json({ liked: mine > 0, mine, likes: Number(st.n), rk: st.rk || "" });
 });
 app.get("/api/posts/:id/comments", async (req, res) => {
   const u = await me(req), rows = await q("SELECT id, player_id, author, body, created_at FROM web_comments WHERE post_id = ? ORDER BY id LIMIT 200", [pid(req.params.id)]);
@@ -342,7 +356,7 @@ app.post("/api/stories", async (req, res) => {
   res.json({ ok: true, id: r.insertId });
 });
 // ---- Reels: videos de la comunidad (kind = "rel", hasta REEL_MAX_SECS s), con me gusta, comentarios y guardados ----
-const REEL_Q = (where) => `SELECT p.id, p.body, p.author, p.created_at, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, (SELECT id FROM player WHERE name = p.author LIMIT 1) AS aid, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COUNT(*) FROM web_saved s WHERE s.post_id = p.id) AS saves, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine, (SELECT COUNT(*) FROM web_saved s WHERE s.post_id = p.id AND s.player_id = ?) AS saved FROM web_posts p WHERE p.type = 'reel' ${where}`;
+const REEL_Q = (where) => `SELECT p.id, p.body, p.author, p.created_at, (SELECT ${SKIN_COL} FROM player WHERE name = p.author LIMIT 1) AS skin, (SELECT id FROM player WHERE name = p.author LIMIT 1) AS aid, (SELECT COUNT(*) FROM web_likes l WHERE l.post_id = p.id) AS likes, (SELECT COUNT(*) FROM web_comments c WHERE c.post_id = p.id) AS comments, (SELECT COUNT(*) FROM web_saved s WHERE s.post_id = p.id) AS saves, (SELECT COALESCE(MAX(l.kind), 0) FROM web_likes l WHERE l.post_id = p.id AND l.player_id = ?) AS mine, (SELECT GROUP_CONCAT(DISTINCT l.kind ORDER BY l.kind) FROM web_likes l WHERE l.post_id = p.id) AS rk, (SELECT COUNT(*) FROM web_saved s WHERE s.post_id = p.id AND s.player_id = ?) AS saved FROM web_posts p WHERE p.type = 'reel' ${where}`;
 app.get("/api/reels", async (req, res) => { // ?before=id (siguiente página) · ?author=Nombre · ?saved=1 (mis guardados) · ?start=id (abre ese primero)
   const uid = sessionId(req) || 0, before = pid(req.query.before), start = pid(req.query.start), au = str(req.query.author), per = Math.min(24, Math.max(1, Number(req.query.n) || 8));
   const where = [], wp = [uid, uid];

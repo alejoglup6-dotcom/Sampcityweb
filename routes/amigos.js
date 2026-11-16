@@ -3,7 +3,7 @@ module.exports = (app, { str, pid, SKIN_COL, pool, q, sessionId, hit, me, NJ, no
 // ---- Notificaciones (API) ----
 app.get("/api/notifications/count", async (req, res) => {
   const id = sessionId(req);
-  res.json({ n: id ? await unreadCount(id).catch(() => 0) : 0 });
+  res.json({ n: id ? await unreadCount(id).catch(() => 0) : 0, m: id ? await q("SELECT COUNT(*) AS n FROM web_msgs WHERE b = ? AND seen = 0", [id]).then((r) => Number(r[0].n)).catch(() => 0) : 0 }); // m = mensajes de chat sin leer
 });
 app.get("/api/notifications", async (req, res) => {
   const id = sessionId(req);
