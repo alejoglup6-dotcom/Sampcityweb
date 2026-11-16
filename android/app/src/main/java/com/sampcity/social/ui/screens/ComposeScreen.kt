@@ -73,6 +73,7 @@ import com.sampcity.social.ui.LocalNavigator
 import com.sampcity.social.ui.components.Avatar
 import com.sampcity.social.ui.components.LocalSnack
 import com.sampcity.social.ui.components.PlayerName
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.pretty
 import com.sampcity.social.ui.components.userMessage
 import com.sampcity.social.util.Media
@@ -132,8 +133,8 @@ fun ComposeScreen(group: Int?) {
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
                 Row(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton({ pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = photos.size < 4 && !busy) { Icon(Icons.Outlined.AddPhotoAlternate, null); Text("  Fotos") }
-                    TextButton({ tagDialog = true }, enabled = !busy) { Icon(Icons.Outlined.PersonAdd, null); Text("  Etiquetar") }
+                    TextButton({ pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = photos.size < 4 && !busy) { SIcon("galeria"); Text("  Fotos") }
+                    TextButton({ tagDialog = true }, enabled = !busy) { SIcon("etiquetar"); Text("  Etiquetar") }
                     TextButton({ pollOn = !pollOn }, enabled = !busy) { Icon(Icons.Outlined.BarChart, null); Text("  Encuesta") }
                 }
             }

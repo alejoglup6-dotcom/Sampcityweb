@@ -52,6 +52,7 @@ import com.sampcity.social.ui.components.PlayerName
 import com.sampcity.social.ui.components.PostFeed
 import com.sampcity.social.ui.components.PostHostDialogs
 import com.sampcity.social.ui.components.SectionTitle
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.rememberPostHost
 import com.sampcity.social.ui.components.userMessage
 import com.sampcity.social.util.Clock
@@ -91,7 +92,7 @@ fun ContentScreen(type: String) {
     val scope = rememberCoroutineScope(); val snack = LocalSnack.current
     var creating by remember { mutableStateOf(false) }
     var reload by remember { mutableStateOf(0) }
-    PostsPage(CONTENT[type] ?: "Contenido", "type=$type", "Aún no hay publicaciones.", fab = if (me?.canPost == true) ({ FloatingActionButton({ creating = true }) { Icon(Icons.Filled.Add, "Nueva") } }) else null, onReload = reload)
+    PostsPage(CONTENT[type] ?: "Contenido", "type=$type", "Aún no hay publicaciones.", fab = if (me?.canPost == true) ({ FloatingActionButton({ creating = true }) { SIcon("mas", color = androidx.compose.ui.graphics.Color.White) } }) else null, onReload = reload)
     if (creating) {
         var title by remember { mutableStateOf("") }; var body by remember { mutableStateOf("") }
         AlertDialog(onDismissRequest = { creating = false }, title = { Text("Nueva publicación (${CONTENT[type]})") }, text = {

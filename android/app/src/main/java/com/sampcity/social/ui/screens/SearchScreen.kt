@@ -50,6 +50,7 @@ import com.sampcity.social.ui.components.Avatar
 import com.sampcity.social.ui.components.EmptyBox
 import com.sampcity.social.ui.components.LoadingBox
 import com.sampcity.social.ui.components.PlayerName
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.PostCard
 import com.sampcity.social.ui.components.PostHostDialogs
 import com.sampcity.social.ui.components.SectionTitle

@@ -67,6 +67,7 @@ import com.sampcity.social.ui.components.LoadingBox
 import com.sampcity.social.ui.components.LocalSnack
 import com.sampcity.social.ui.components.Paged
 import com.sampcity.social.ui.components.PlayerName
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.PostFeed
 import com.sampcity.social.ui.components.PostHostDialogs
 import com.sampcity.social.ui.components.SectionTitle
@@ -92,7 +93,7 @@ fun GroupsScreen() {
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Grupos") }, navigationIcon = { IconButton(nav::back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } }) },
-        floatingActionButton = { FloatingActionButton({ creating = true }) { Icon(Icons.Filled.Add, "Crear grupo") } },
+        floatingActionButton = { FloatingActionButton({ creating = true }) { SIcon("mas", color = androidx.compose.ui.graphics.Color.White) } },
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
             OutlinedTextField(q, { q = it }, Modifier.fillMaxWidth().padding(12.dp), singleLine = true, placeholder = { Text("Buscar grupos…") })
@@ -117,9 +118,9 @@ fun GroupsScreen() {
 private fun GroupRow(g: GroupItem) {
     val nav = LocalNavigator.current
     Row(Modifier.fillMaxWidth().clickable { nav.group(g.id) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Group, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+        Box(Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) { SIcon("comunidad", size = 28.dp) }
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) { Text(g.name, style = MaterialTheme.typography.titleSmall, maxLines = 1); if (g.priv == 1) Icon(Icons.Filled.Lock, "Privado", Modifier.padding(start = 4.dp).size(14.dp)) }
+            Row(verticalAlignment = Alignment.CenterVertically) { Text(g.name, style = MaterialTheme.typography.titleSmall, maxLines = 1); if (g.priv == 1) SIcon("candado", Modifier.padding(start = 4.dp), 14.dp) }
             Text("${count(g.members)} miembros · ${count(g.posts)} publicaciones", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (g.about.isNotBlank()) Text(g.about, style = MaterialTheme.typography.bodySmall, maxLines = 1, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -170,7 +171,7 @@ fun GroupScreen(id: Int) {
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(g?.name ?: "Grupo", maxLines = 1) }, navigationIcon = { IconButton(nav::back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } }) },
-        floatingActionButton = { if (g != null && g.role > 0) FloatingActionButton({ nav.compose(id) }) { Icon(Icons.Filled.Add, "Publicar") } },
+        floatingActionButton = { if (g != null && g.role > 0) FloatingActionButton({ nav.compose(id) }) { SIcon("mas", color = androidx.compose.ui.graphics.Color.White) } },
     ) { pad ->
         when {
             g == null && vm.error != null -> ErrorBox(vm.error!!, vm::load, Modifier.padding(pad).fillMaxSize())
@@ -178,7 +179,7 @@ fun GroupScreen(id: Int) {
             else -> LazyColumn(Modifier.padding(pad).fillMaxSize(), state = state, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
                     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) { Text(g.name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f)); if (g.priv == 1) Icon(Icons.Filled.Lock, "Privado") }
+                        Row(verticalAlignment = Alignment.CenterVertically) { Text(g.name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f)); if (g.priv == 1) SIcon("candado") }
                         if (g.about.isNotBlank()) Text(g.about)
                         Text("${count(g.members)} miembros · ${if (g.priv == 1) "Grupo privado" else "Grupo público"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         when (g.role) {

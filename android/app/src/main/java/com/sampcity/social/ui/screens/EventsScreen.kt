@@ -58,6 +58,7 @@ import com.sampcity.social.ui.components.ErrorBox
 import com.sampcity.social.ui.components.LoadingBox
 import com.sampcity.social.ui.components.LocalSnack
 import com.sampcity.social.ui.components.PlayerName
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.pretty
 import com.sampcity.social.ui.components.userMessage
 import com.sampcity.social.util.Clock
@@ -83,7 +84,7 @@ fun EventsScreen() {
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Eventos") }, navigationIcon = { IconButton(nav::back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } }) },
-        floatingActionButton = { FloatingActionButton({ creating = true }) { Icon(Icons.Filled.Add, "Crear evento") } },
+        floatingActionButton = { FloatingActionButton({ creating = true }) { SIcon("mas", color = androidx.compose.ui.graphics.Color.White) } },
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
             Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(!past, { past = false }, { Text("Próximos") }); FilterChip(past, { past = true }, { Text("Pasados") }) }
@@ -98,8 +99,8 @@ fun EventsScreen() {
                             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(e.title, style = MaterialTheme.typography.titleMedium)
-                                    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Event, null, Modifier.padding(end = 6.dp)); Text(Clock.eventDay(e.starts)) }
-                                    if (e.place.isNotBlank()) Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Place, null, Modifier.padding(end = 6.dp)); Text(e.place) }
+                                    Row(verticalAlignment = Alignment.CenterVertically) { SIcon("calendario", Modifier.padding(end = 6.dp), 20.dp); Text(Clock.eventDay(e.starts)) }
+                                    if (e.place.isNotBlank()) Row(verticalAlignment = Alignment.CenterVertically) { SIcon("ubicacion", Modifier.padding(end = 6.dp), 20.dp); Text(e.place) }
                                     if (e.about.isNotBlank()) Text(e.about, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Row(verticalAlignment = Alignment.CenterVertically) { Avatar(e.owner, e.skin, 24.dp); Text("  ${e.owner.pretty()}", style = MaterialTheme.typography.bodySmall) }
                                     Text("${e.going} asistirán · ${e.maybe} interesados", Modifier.clickable { people = e }.padding(vertical = 4.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)

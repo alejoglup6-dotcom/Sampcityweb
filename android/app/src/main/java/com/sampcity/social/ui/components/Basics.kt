@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -63,7 +62,7 @@ fun Avatar(name: String, skin: String?, size: Dp = 40.dp, modifier: Modifier = M
             }
         }
         SubcomposeAsyncImage(
-            model = api.avatarUrl(name, skin), contentDescription = name.replace('_', ' '), contentScale = ContentScale.Crop,
+            model = api.avatarUrl(name, skin), contentDescription = name.replace('_', ' '), contentScale = ContentScale.Crop, alignment = Alignment.TopCenter,
             modifier = Modifier.fillMaxSize().clip(CircleShape), loading = { initial() }, error = { initial() },
         )
         if (online) Box(Modifier.align(Alignment.BottomEnd).size(size * 0.28f).clip(CircleShape).background(Online).border(2.dp, MaterialTheme.colorScheme.surface, CircleShape))
@@ -78,7 +77,7 @@ fun PlayerName(name: String, modifier: Modifier = Modifier, style: androidx.comp
     val verified = SampApp.instance.session.info.collectAsStateValue().verified.contains(name)
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(name.pretty(), style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-        if (verified) Icon(Icons.Filled.Verified, "Verificado", tint = VerifiedBlue, modifier = Modifier.padding(start = 4.dp).size(16.dp))
+        if (verified) Box(Modifier.padding(start = 4.dp).size(15.dp).clip(CircleShape).background(VerifiedBlue), contentAlignment = Alignment.Center) { Text("✔", color = Color.White, fontSize = 9.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) } // igual que .vf de la web
     }
 }
 

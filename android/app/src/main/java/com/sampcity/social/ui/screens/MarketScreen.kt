@@ -77,6 +77,7 @@ import com.sampcity.social.ui.components.LocalSnack
 import com.sampcity.social.ui.components.OnEndReached
 import com.sampcity.social.ui.components.Paged
 import com.sampcity.social.ui.components.PlayerName
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.pretty
 import com.sampcity.social.ui.components.userMessage
 import com.sampcity.social.util.Clock
@@ -106,7 +107,7 @@ fun MarketScreen(vm: MarketVM = viewModel()) {
     var creating by remember { mutableStateOf(false) }
     Scaffold(
         topBar = { TopAppBar(title = { Text("Marketplace") }, navigationIcon = { IconButton(nav::back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } }) },
-        floatingActionButton = { FloatingActionButton({ creating = true }) { Icon(Icons.Filled.Add, "Nuevo anuncio") } },
+        floatingActionButton = { FloatingActionButton({ creating = true }) { SIcon("mas", color = androidx.compose.ui.graphics.Color.White) } },
     ) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
             Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -191,7 +192,7 @@ private fun ListingDialog(edit: MarketItem?, onDismiss: () -> Unit, onDone: () -
             OutlinedTextField(title, { if (it.length <= 80) title = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Título") })
             OutlinedTextField(price, { if (it.length <= 10 && it.all(Char::isDigit)) price = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Precio ($)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
             OutlinedTextField(body, { if (it.length <= 600) body = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text("Descripción") })
-            if (edit == null) { OutlinedButton({ pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Icon(Icons.Outlined.AddPhotoAlternate, null); Text(if (photo == null) "  Agregar foto" else "  Foto elegida ✔") } }
+            if (edit == null) { OutlinedButton({ pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { SIcon("galeria"); Text(if (photo == null) "  Agregar foto" else "  Foto elegida ✔") } }
         }
     }, confirmButton = {
         TextButton({

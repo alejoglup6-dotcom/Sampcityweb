@@ -49,6 +49,7 @@ import com.sampcity.social.live.NotifText
 import com.sampcity.social.ui.LocalNavigator
 import com.sampcity.social.ui.components.Avatar
 import com.sampcity.social.ui.components.EmptyBox
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.ErrorBox
 import com.sampcity.social.ui.components.LoadingBox
 import com.sampcity.social.ui.components.OnEndReached
@@ -79,7 +80,7 @@ fun NotificationsScreen(vm: NotifVM = viewModel()) {
     Scaffold(topBar = {
         TopAppBar(title = { Text("Avisos") }, actions = {
             Box {
-                IconButton({ menu = true }) { Icon(Icons.Filled.MoreVert, "Más") }
+                IconButton({ menu = true }) { SIcon("puntos") }
                 DropdownMenu(menu, { menu = false }) { DropdownMenuItem({ Text("Marcar todo como leído") }, { menu = false; vm.markAll() }) }
             }
         })
@@ -116,7 +117,7 @@ private fun NotifRow(n: Notif, onOpen: () -> Unit, onDelete: () -> Unit, onRead:
         }
         if (unread) Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
         Box {
-            IconButton({ menu = true }, Modifier.size(32.dp)) { Icon(Icons.Filled.MoreVert, "Más", Modifier.size(20.dp)) }
+            IconButton({ menu = true }, Modifier.size(32.dp)) { SIcon("puntos", size = 20.dp) }
             DropdownMenu(menu, { menu = false }) {
                 if (unread) DropdownMenuItem({ Text("Marcar como leído") }, { menu = false; onRead() })
                 DropdownMenuItem({ Text("Eliminar") }, { menu = false; onDelete() })

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -94,8 +95,7 @@ fun AuthScreen() {
         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
-        Image(painterResource(R.mipmap.ic_launcher_foreground), null, Modifier.size(150.dp))
-        Text("SampCity", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.primary)
+        Image(painterResource(R.drawable.logo), "SampCity", Modifier.width(240.dp).padding(vertical = 12.dp))
         Text(if (register) "Crea tu cuenta. Es la misma con la que entras al juego." else "Entra con el nombre y la contraseña de tu cuenta del servidor.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
         notice?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 8.dp)) }
 

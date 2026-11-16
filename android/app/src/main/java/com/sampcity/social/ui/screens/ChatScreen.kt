@@ -108,6 +108,7 @@ import com.sampcity.social.ui.components.PlayerPickerDialog
 import com.sampcity.social.ui.components.PromptDialog
 import com.sampcity.social.ui.components.Reactions
 import com.sampcity.social.ui.components.RichText
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.pretty
 import com.sampcity.social.ui.components.userMessage
 import com.sampcity.social.util.Clock
@@ -249,7 +250,7 @@ fun ChatScreen(target: ChatTarget) {
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { if (isPlayer) nav.profile((target as ChatTarget.Player).name) else info = true }) {
                         if (isPlayer) Avatar((target as ChatTarget.Player).name, vm.skin, 38.dp, online = vm.online)
-                        else Box(Modifier.size(38.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Group, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+                        else Box(Modifier.size(38.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) { SIcon("comunidad", size = 24.dp) }
                         Column(Modifier.padding(start = 10.dp)) {
                             if (isPlayer) PlayerName(( target as ChatTarget.Player).name, style = MaterialTheme.typography.titleSmall) else Text(vm.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(if (vm.typing) "escribiendo…" else if (isPlayer) (if (vm.online) "en línea" else "") else "${vm.members.size} miembros", style = MaterialTheme.typography.labelSmall, color = if (vm.typing || vm.online) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -430,7 +431,7 @@ private fun ChatInput(vm: ChatVM, replyTo: ChatMsg?, clearReply: () -> Unit, isP
                 }
                 IconButton({ recording = false; sendAudio(vm, recorder, replyTo, scope, snack, clearReply) }, Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.primary)) { Icon(Icons.AutoMirrored.Filled.Send, "Enviar audio", tint = MaterialTheme.colorScheme.onPrimary) }
             } else Row(Modifier.padding(horizontal = 6.dp, vertical = 6.dp), verticalAlignment = Alignment.Bottom) {
-                IconButton({ pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Icon(Icons.Outlined.AddPhotoAlternate, "Enviar foto") }
+                IconButton({ pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { SIcon("galeria") }
                 OutlinedTextField(text, { if (it.length <= 1000) { text = it; val n = System.currentTimeMillis(); if (isPlayer && n - lastTyping > 3000) { lastTyping = n; vm.typingPing() } } }, Modifier.weight(1f), placeholder = { Text("Escribe un mensaje…") }, maxLines = 5, shape = RoundedCornerShape(24.dp))
                 if (text.isBlank()) IconButton({ if (androidx.core.content.ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) { if (recorder.start()) { recording = true; levels.replaceAll { 0f } } else scope.launch { snack.showSnackbar("No pude usar el micrófono") } } else askMic.launch(Manifest.permission.RECORD_AUDIO) }) { Icon(Icons.Filled.Mic, "Grabar audio") }
                 else IconButton(::sendText, enabled = !vm.sending) { Icon(Icons.AutoMirrored.Filled.Send, "Enviar", tint = MaterialTheme.colorScheme.primary) }

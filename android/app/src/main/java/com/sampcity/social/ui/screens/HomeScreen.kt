@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -55,6 +56,7 @@ import com.sampcity.social.data.Post
 import com.sampcity.social.ui.LocalNavigator
 import com.sampcity.social.ui.LocalOpenDrawer
 import com.sampcity.social.ui.components.Avatar
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.Paged
 import com.sampcity.social.ui.components.PostFeed
 import com.sampcity.social.ui.components.PostHostDialogs
@@ -106,9 +108,9 @@ fun HomeScreen(vm: FeedVM = viewModel()) {
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text("SampCity", style = MaterialTheme.typography.titleLarge.copy(fontFamily = Russo), color = Rojo) },
-                navigationIcon = { IconButton(openDrawer) { Icon(Icons.Filled.Menu, "Menú") } },
-                actions = { IconButton({ nav.search() }) { Icon(Icons.Outlined.Search, "Buscar") } },
+                title = { androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(com.sampcity.social.R.drawable.logo), "SampCity", Modifier.height(30.dp)) },
+                navigationIcon = { IconButton(openDrawer) { SIcon("menu_hamburguesa") } },
+                actions = { IconButton({ nav.search() }) { SIcon("buscar") } },
                 scrollBehavior = scroll,
             )
         },
@@ -119,7 +121,7 @@ fun HomeScreen(vm: FeedVM = viewModel()) {
                 Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (me != null) Avatar(me.name, me.skin, 40.dp)
                     Box(Modifier.padding(horizontal = 10.dp).weight(1f).clip(RoundedCornerShape(24.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp)).clickable { nav.compose() }.padding(horizontal = 16.dp, vertical = 11.dp)) { Text("¿Qué estás pensando?", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    IconButton({ nav.compose() }) { Icon(Icons.Outlined.Image, "Foto", tint = MaterialTheme.colorScheme.tertiary) }
+                    IconButton({ nav.compose() }) { SIcon("galeria") }
                 }
             }
             item {
@@ -143,7 +145,7 @@ private fun StoryStrip(vm: FeedVM, onCreate: () -> Unit) {
     LazyRow(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(vertical = 10.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Column(Modifier.width(68.dp).clickable(onClick = onCreate), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(62.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Add, "Crear historia", tint = MaterialTheme.colorScheme.primary) }
+                Box(Modifier.size(62.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) { SIcon("mas", size = 30.dp) }
                 Text("Crear historia", style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
             }
         }

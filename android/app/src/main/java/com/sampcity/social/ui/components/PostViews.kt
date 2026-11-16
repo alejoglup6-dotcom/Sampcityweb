@@ -155,7 +155,7 @@ fun MediaGrid(media: List<MediaRef>, modifier: Modifier = Modifier, onOpen: (Int
     @Composable fun cell(i: Int, m: Modifier) {
         Box(m.clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onOpen(i) }) {
             AsyncImage(api.mediaUrl(shown[i].previewId), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            if (shown[i].isVideo) Icon(Icons.Filled.PlayArrow, null, tint = Color.White, modifier = Modifier.align(Alignment.Center).size(44.dp).background(Color(0x99000000), CircleShape))
+            if (shown[i].isVideo) SIcon("play", Modifier.align(Alignment.Center).background(Color(0x99000000), CircleShape).padding(10.dp), 44.dp, color = Color.White)
             if (i == 3 && media.size > 4) Box(Modifier.fillMaxSize().background(Color(0x99000000)), contentAlignment = Alignment.Center) { Text("+${media.size - 4}", color = Color.White, style = MaterialTheme.typography.titleLarge) }
         }
     }
@@ -295,10 +295,10 @@ fun PostHostDialogs(h: PostHost) {
 }
 
 @Composable
-private fun SheetItem(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, danger: Boolean = false, onClick: () -> Unit) {
+private fun SheetItem(icon: String, text: String, danger: Boolean = false, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(text, color = if (danger) MaterialTheme.colorScheme.error else Color.Unspecified) },
-        leadingContent = { Icon(icon, null, tint = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) },
+        leadingContent = { SIcon(icon) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent), modifier = Modifier.clickable(onClick = onClick),
     )
 }
@@ -308,16 +308,16 @@ private fun PostMenuSheet(h: PostHost, p: Post, onDismiss: () -> Unit) {
     val own = h.me?.name == p.author; val staff = h.me?.canPost == true
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.padding(bottom = 24.dp)) {
-            SheetItem(Icons.Outlined.BookmarkBorder, "Guardar o quitar de guardados") { onDismiss(); h.save(p) }
-            if (p.likes > 0) SheetItem(Icons.Outlined.ThumbUp, "Ver quién reaccionó") { onDismiss(); h.reactors = p }
-            SheetItem(Icons.Outlined.ContentCopy, "Copiar enlace") { onDismiss(); h.copyLink(p) }
-            SheetItem(Icons.Outlined.Share, "Compartir…") { onDismiss(); h.share = p }
-            if (own && p.type == "post") { SheetItem(Icons.Outlined.Edit, "Editar") { onDismiss(); h.edit = p }; SheetItem(Icons.Filled.PushPin, "Fijar o desfijar en mi perfil") { onDismiss(); h.pin(p) } }
-            if (own || staff) SheetItem(Icons.Outlined.Delete, "Eliminar", true) { onDismiss(); h.confirmDelete = p }
+            SheetItem("guardar", "Guardar o quitar de guardados") { onDismiss(); h.save(p) }
+            if (p.likes > 0) SheetItem("like", "Ver quién reaccionó") { onDismiss(); h.reactors = p }
+            SheetItem("copiar_ip", "Copiar enlace") { onDismiss(); h.copyLink(p) }
+            SheetItem("compartir_vincular", "Compartir…") { onDismiss(); h.share = p }
+            if (own && p.type == "post") { SheetItem("reglas", "Editar") { onDismiss(); h.edit = p }; SheetItem("estrella", "Fijar o desfijar en mi perfil") { onDismiss(); h.pin(p) } }
+            if (own || staff) SheetItem("cerrar", "Eliminar", true) { onDismiss(); h.confirmDelete = p }
             if (!own) {
-                SheetItem(Icons.Outlined.VisibilityOff, "Ocultar publicación") { onDismiss(); h.hide(p) }
-                SheetItem(Icons.Outlined.Flag, "Reportar", true) { onDismiss(); h.report = p }
-                SheetItem(Icons.Outlined.Block, "Bloquear a ${p.author.pretty()}", true) { onDismiss(); h.block(p.author) }
+                SheetItem("silencio", "Ocultar publicación") { onDismiss(); h.hide(p) }
+                SheetItem("rango_moderador", "Reportar", true) { onDismiss(); h.report = p }
+                SheetItem("esposas", "Bloquear a ${p.author.pretty()}", true) { onDismiss(); h.block(p.author) }
             }
         }
     }
@@ -327,9 +327,9 @@ private fun PostMenuSheet(h: PostHost, p: Post, onDismiss: () -> Unit) {
 private fun ShareSheet(h: PostHost, p: Post, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismiss) {
         Column(Modifier.padding(bottom = 24.dp)) {
-            if (p.vis == 0 && p.groupId == null) SheetItem(Icons.Outlined.Reply, "Compartir en mi perfil") { onDismiss(); h.shareToProfile(p) }
-            SheetItem(Icons.Outlined.Share, "Enviar enlace por otra app") { onDismiss(); h.sendLink(p) }
-            SheetItem(Icons.Outlined.ContentCopy, "Copiar enlace") { onDismiss(); h.copyLink(p) }
+            if (p.vis == 0 && p.groupId == null) SheetItem("compartir_vincular", "Compartir en mi perfil") { onDismiss(); h.shareToProfile(p) }
+            SheetItem("compartir_vincular", "Enviar enlace por otra app") { onDismiss(); h.sendLink(p) }
+            SheetItem("copiar_ip", "Copiar enlace") { onDismiss(); h.copyLink(p) }
         }
     }
 }
@@ -364,12 +364,12 @@ fun PostCard(p: Post, h: PostHost, modifier: Modifier = Modifier, detail: Boolea
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(Clock.ago(p.createdAt) + if (p.editedAt != null) " · editado" else "", style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant)
-                    Icon(when (p.vis) { 1 -> Icons.Outlined.People; 2 -> Icons.Filled.Lock; else -> Icons.Outlined.Public }, null, Modifier.padding(start = 6.dp).size(13.dp), tint = c.onSurfaceVariant)
-                    if (p.gname != null) { Icon(Icons.Filled.Group, null, Modifier.padding(start = 6.dp).size(13.dp), tint = c.onSurfaceVariant); Text(" " + p.gname, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    Text(when (p.vis) { 1 -> "  👥"; 2 -> "  🔒"; else -> "  🌐" }, fontSize = 11.sp)
+                    if (p.gname != null) { Text("  ▸ " + p.gname, style = MaterialTheme.typography.bodySmall, color = c.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
             }
             if (p.type != "post") AssistChip({}, label = { Text(typeName(p.type)) }, modifier = Modifier.padding(end = 4.dp))
-            IconButton({ h.menu = p }) { Icon(Icons.Filled.MoreHoriz, "Opciones") }
+            IconButton({ h.menu = p }) { SIcon("puntos") }
         }
         if (p.title.isNotBlank()) Text(p.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp))
         if (p.type == "photo" && p.body.isNotBlank()) AsyncImage(SampApp.instance.api.imgUrl(p.body), null, contentScale = ContentScale.FillWidth, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
@@ -394,8 +394,8 @@ fun PostCard(p: Post, h: PostHost, modifier: Modifier = Modifier, detail: Boolea
         HorizontalDivider(Modifier.padding(horizontal = 14.dp), color = c.outlineVariant)
         Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
             ReactionButton(p, h, Modifier.weight(1f))
-            ActionButton(Icons.Outlined.ChatBubbleOutline, "Comentar", Modifier.weight(1f)) { nav.post(p.id) }
-            ActionButton(Icons.Outlined.Share, "Compartir", Modifier.weight(1f)) { h.share = p }
+            ActionButton("discord_comentarios", "Comentar", Modifier.weight(1f)) { nav.post(p.id) }
+            ActionButton("compartir_vincular", "Compartir", Modifier.weight(1f)) { h.share = p }
         }
     }
 }
@@ -403,9 +403,9 @@ fun PostCard(p: Post, h: PostHost, modifier: Modifier = Modifier, detail: Boolea
 private fun typeName(t: String) = when (t) { "news" -> "Noticia"; "update" -> "Actualización"; "photo" -> "Foto"; "faq" -> "FAQ"; "rules" -> "Reglas"; "review" -> "Testimonio"; "reel" -> "Reel"; "story" -> "Historia"; else -> t }
 
 @Composable
-private fun ActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier, tint: Color = MaterialTheme.colorScheme.onSurfaceVariant, onClick: () -> Unit) {
+private fun ActionButton(icon: String, label: String, modifier: Modifier, tint: Color = MaterialTheme.colorScheme.onSurfaceVariant, onClick: () -> Unit) {
     Row(modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(vertical = 10.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp)); Text(" $label", style = MaterialTheme.typography.labelLarge, color = tint)
+        SIcon(icon, size = 22.dp); Text(" $label", style = MaterialTheme.typography.labelLarge, color = tint)
     }
 }
 
@@ -421,7 +421,7 @@ fun ReactionButton(p: Post, h: PostHost, modifier: Modifier = Modifier) {
             Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).combinedClickable(onClick = { h.react(p, if (on) p.mine else 1) }, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); picker = true }).padding(vertical = 10.dp),
             horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (on) Text(Reactions.emoji[p.mine], fontSize = 18.sp) else Icon(Icons.Outlined.ThumbUp, null, tint = c.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            if (on) Text(Reactions.emoji[p.mine], fontSize = 18.sp) else SIcon("like", size = 22.dp)
             Text(" " + if (on) Reactions.names[p.mine] else "Me gusta", style = MaterialTheme.typography.labelLarge, color = if (on) c.secondary else c.onSurfaceVariant)
         }
         if (picker) Popup(alignment = Alignment.TopStart, offset = IntOffset(0, -150), onDismissRequest = { picker = false }) {

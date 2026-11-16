@@ -91,6 +91,7 @@ import com.sampcity.social.ui.components.LocalSnack
 import com.sampcity.social.ui.components.OnEndReached
 import com.sampcity.social.ui.components.Paged
 import com.sampcity.social.ui.components.PlayerName
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.PostCard
 import com.sampcity.social.ui.components.PostHostDialogs
 import com.sampcity.social.ui.components.pretty
@@ -160,7 +161,7 @@ fun ProfileScreen(name: String, isTab: Boolean = false) {
                 title = { Text(name.pretty(), maxLines = 1) },
                 navigationIcon = { if (!isTab) IconButton(nav::back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } },
                 actions = {
-                    if (own) IconButton({ nav.go("settings") }) { Icon(Icons.Filled.Settings, "Configuración") }
+                    if (own) IconButton({ nav.go("settings") }) { SIcon("candado") }
                     else Box {
                         IconButton({ menu = true }) { Icon(Icons.Filled.MoreVert, "Más") }
                         DropdownMenu(menu, { menu = false }) {
@@ -180,7 +181,7 @@ fun ProfileScreen(name: String, isTab: Boolean = false) {
                 PullToRefreshBox(vm.refreshing, { vm.load() }, Modifier.padding(pad)) {
                     LazyColumn(Modifier.fillMaxSize(), state = state, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         item { ProfileHeader(u, own, onEdit = { edit = true }, onChanged = { vm.load() }) }
-                        if (u.locked && !own) item { Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Filled.Lock, null, Modifier.size(40.dp)); Text("Este perfil es privado", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)); Text("Solo sus amigos pueden ver su perfil.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) } }
+                        if (u.locked && !own) item { Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) { SIcon("candado", size = 40.dp); Text("Este perfil es privado", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)); Text("Solo sus amigos pueden ver su perfil.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) } }
                         else {
                             item {
                                 val tabs = listOf("Publicaciones", "Fotos", "Amigos")
@@ -259,12 +260,12 @@ private fun ProfileHeader(u: UserProfile, own: Boolean, onEdit: () -> Unit, onCh
                 Stat(count(u.posts), "publicaciones"); Stat(count(u.friends), "amigos"); Stat(count(u.followers), "seguidores"); Stat(count(u.likes), "me gusta")
             }
             if (!u.locked || own) FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Info(Icons.Filled.Star, "Nivel ${u.level} · Rep. ${u.rep}")
-                if (u.timePlaying > 0) Info(Icons.Filled.Star, "${hoursPlayed(u.timePlaying)} jugadas")
-                if (u.job.isNotBlank()) Info(Icons.Filled.Work, u.job)
-                if (u.city.isNotBlank()) Info(Icons.Filled.Place, "Vive en ${u.city}")
-                if (u.bday.isNotBlank()) Info(Icons.Filled.Cake, "Cumple ${u.bday.replace('-', '/')}")
-                if (u.link.isNotBlank()) Row(Modifier.clickable { openWeb(ctx, u.link) }, verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Link, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary); Text(" " + u.link.removePrefix("https://"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary) }
+                Info("estrella", "Nivel ${u.level} · Rep. ${u.rep}")
+                if (u.timePlaying > 0) Info("reloj", "${hoursPlayed(u.timePlaying)} jugadas")
+                if (u.job.isNotBlank()) Info("solicitar_staff", u.job)
+                if (u.city.isNotBlank()) Info("ubicacion", "Vive en ${u.city}")
+                if (u.bday.isNotBlank()) Info("calendario", "Cumple ${u.bday.replace('-', '/')}")
+                if (u.link.isNotBlank()) Row(Modifier.clickable { openWeb(ctx, u.link) }, verticalAlignment = Alignment.CenterVertically) { SIcon("arroba", size = 16.dp); Text(" " + u.link.removePrefix("https://"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary) }
             }
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (own) OutlinedButton(onEdit, Modifier.weight(1f)) { Text("Editar perfil") }
@@ -284,7 +285,7 @@ private fun ProfileHeader(u: UserProfile, own: Boolean, onEdit: () -> Unit, onCh
 }
 
 @Composable private fun Stat(n: String, label: String) = Column(horizontalAlignment = Alignment.CenterHorizontally) { Text(n, style = MaterialTheme.typography.titleMedium); Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-@Composable private fun Info(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) = Row(verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Text(" $text", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+@Composable private fun Info(icon: String, text: String) = Row(verticalAlignment = Alignment.CenterVertically) { SIcon(icon, size = 16.dp); Text(" $text", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 
 @Composable
 private fun PhotosGrid(photos: List<PhotoRef>?, onOpen: (PhotoRef) -> Unit) {

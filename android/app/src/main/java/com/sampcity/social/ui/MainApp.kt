@@ -5,6 +5,13 @@ package com.sampcity.social.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -89,19 +96,12 @@ import com.sampcity.social.SampApp
 import com.sampcity.social.ui.components.Avatar
 import com.sampcity.social.ui.components.LocalSnack
 import com.sampcity.social.ui.components.PlayerName
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.pretty
 import com.sampcity.social.ui.screens.*
 import kotlinx.coroutines.launch
 
 val LocalOpenDrawer = staticCompositionLocalOf<() -> Unit> { {} }
-
-private data class Tab(val route: String, val label: String, val on: ImageVector, val off: ImageVector)
-private val TABS = listOf(
-    Tab("home", "Inicio", Icons.Filled.Home, Icons.Outlined.Home),
-    Tab("reels", "Reels", Icons.Filled.PlayCircle, Icons.Outlined.PlayCircleOutline),
-    Tab("chats", "Mensajes", Icons.Filled.Chat, Icons.Outlined.Chat),
-    Tab("notifications", "Avisos", Icons.Filled.Notifications, Icons.Outlined.Notifications),
-)
 
 @Composable
 fun MainApp(initialRoute: String?) {
@@ -117,7 +117,7 @@ fun MainApp(initialRoute: String?) {
     val counts by app.session.counts.collectAsStateWithLifecycle()
     val back by nav.currentBackStackEntryAsState()
     val route = back?.destination?.route ?: "home"
-    val onTab = route == "home" || route == "chats" || route == "notifications" || route == "me" || route.startsWith("reels")
+    val onTab = route == "home" || route == "chats" || route == "notifications" || route == "me" || route == "friends" || route == "market" || route.startsWith("reels")
     val notice by app.session.notice.collectAsStateWithLifecycle()
 
     LaunchedEffect(initialRoute) { if (initialRoute != null) navigator.open(initialRoute) }
@@ -141,18 +141,7 @@ fun MainApp(initialRoute: String?) {
         ) {
             Scaffold(
                 snackbarHost = { SnackbarHost(snack) }, contentWindowInsets = WindowInsets(0),
-                bottomBar = {
-                    if (onTab) NavigationBar {
-                        TABS.forEach { t ->
-                            val sel = route == t.route || (t.route == "reels" && route.startsWith("reels"))
-                            val badge = when (t.route) { "chats" -> counts.m; "notifications" -> counts.n; else -> 0 }
-                            NavigationBarItem(selected = sel, onClick = { navigator.tab(t.route) }, label = { Text(t.label) }, icon = {
-                                BadgedBox(badge = { if (badge > 0) Badge { Text(if (badge > 99) "99+" else badge.toString()) } }) { Icon(if (sel) t.on else t.off, t.label) }
-                            })
-                        }
-                        NavigationBarItem(selected = route == "me", onClick = { navigator.tab("me") }, label = { Text("Perfil") }, icon = { if (me != null) Avatar(me.name, me.skin, 26.dp) })
-                    }
-                },
+                bottomBar = { if (onTab) WebTabBar(route, me, counts, freq = me?.freq ?: 0, navigator) },
             ) { inner ->
                 val bottom = inner.calculateBottomPadding()
                 // la barra de abajo ya cubre el borde del sistema: las pantallas no lo vuelven a sumar
@@ -199,33 +188,60 @@ private fun DrawerContent(me: com.sampcity.social.data.Me?, unread: Int, close: 
                 Column(Modifier.padding(start = 12.dp)) { PlayerName(me.name, style = MaterialTheme.typography.titleMedium); Text(me.rango, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
             HorizontalDivider()
-            fun item(icon: ImageVector, label: String, badge: Int = 0, action: () -> Unit) = @Composable {
-                NavigationDrawerItem(label = { Text(label) }, selected = false, onClick = { close(); action() }, icon = { Icon(icon, null) }, badge = if (badge > 0) ({ Badge { Text(badge.toString()) } }) else null, modifier = Modifier.padding(horizontal = 10.dp))
+            fun item(icon: String, label: String, badge: Int = 0, action: () -> Unit) = @Composable {
+                NavigationDrawerItem(label = { Text(label) }, selected = false, onClick = { close(); action() }, icon = { SIcon(icon) }, badge = if (badge > 0) ({ Badge { Text(badge.toString()) } }) else null, modifier = Modifier.padding(horizontal = 10.dp))
             }
-            item(Icons.Outlined.People, "Amigos", freq) { nav.go("friends") }()
-            item(Icons.Outlined.Group, "Grupos") { nav.go("groups") }()
-            item(Icons.Outlined.Event, "Eventos") { nav.go("events") }()
-            item(Icons.Outlined.Storefront, "Marketplace") { nav.go("market") }()
-            item(Icons.Outlined.Search, "Buscar") { nav.search() }()
-            item(Icons.Outlined.Bookmark, "Guardados") { nav.go("saved") }()
+            item("etiquetar", "Amigos", freq) { nav.go("friends") }()
+            item("comunidad", "Grupos") { nav.go("groups") }()
+            item("calendario", "Eventos") { nav.go("events") }()
+            item("marketplace", "Marketplace") { nav.go("market") }()
+            item("buscar", "Buscar") { nav.search() }()
+            item("guardar", "Guardados") { nav.go("saved") }()
             HorizontalDivider(Modifier.padding(vertical = 6.dp))
-            item(Icons.Outlined.Campaign, "Noticias") { nav.content("news") }()
-            item(Icons.Outlined.SystemUpdate, "Actualizaciones") { nav.content("update") }()
-            item(Icons.Outlined.PhotoLibrary, "Fotos de la comunidad") { nav.content("photo") }()
-            item(Icons.Outlined.Help, "Preguntas frecuentes") { nav.content("faq") }()
-            item(Icons.Outlined.Gavel, "Reglas") { nav.content("rules") }()
-            item(Icons.Outlined.Star, "Testimonios") { nav.content("review") }()
-            item(Icons.Outlined.Shield, "Equipo (staff)") { nav.go("staff") }()
-            item(Icons.Outlined.EmojiEvents, "Clasificación") { nav.go("top") }()
+            item("noticias", "Noticias") { nav.content("news") }()
+            item("actualizaciones", "Actualizaciones") { nav.content("update") }()
+            item("fotos", "Fotos de la comunidad") { nav.content("photo") }()
+            item("faq", "Preguntas frecuentes") { nav.content("faq") }()
+            item("reglas", "Reglas") { nav.content("rules") }()
+            item("testimonios", "Testimonios") { nav.content("review") }()
+            item("staff_equipo", "Equipo (staff)") { nav.go("staff") }()
+            item("clasificacion", "Clasificación") { nav.go("top") }()
             HorizontalDivider(Modifier.padding(vertical = 6.dp))
-            item(Icons.Outlined.ShoppingBag, "Tienda") { openWeb(ctx, "/tienda") }()
-            item(Icons.Outlined.Work, "Solicitar ser staff") { openWeb(ctx, "/solicitar-staff") }()
-            item(Icons.Outlined.MenuBook, "Guía del servidor") { openWeb(ctx, "/guia") }()
-            item(Icons.Outlined.Mail, "Contacto") { openWeb(ctx, "/contacto") }()
+            item("dinero", "Tienda") { openWeb(ctx, "/tienda") }()
+            item("solicitar_staff", "Solicitar ser staff") { openWeb(ctx, "/solicitar-staff") }()
+            item("buscar", "Guía del servidor") { openWeb(ctx, "/guia") }()
+            item("contacto", "Contacto") { openWeb(ctx, "/contacto") }()
             HorizontalDivider(Modifier.padding(vertical = 6.dp))
-            if (me?.canPost == true) item(Icons.Outlined.AdminPanelSettings, "Panel del staff") { nav.go("panel") }()
-            item(Icons.Outlined.Settings, "Configuración") { nav.go("settings") }()
-            item(Icons.Outlined.Logout, "Cerrar sesión") { scope.launch { SampApp.instance.session.logout() } }()
+            if (me?.canPost == true) item("rango_administrador", "Panel del staff") { nav.go("panel") }()
+            item("candado", "Configuración") { nav.go("settings") }()
+            item("cerrar", "Cerrar sesión") { scope.launch { SampApp.instance.session.logout() } }()
+        }
+    }
+}
+
+/** Barra de abajo igual que la de la web en el celular: Feed · Reels · Amigos · Mensajes · Marketplace · Avisos · Perfil, con una raya roja arriba en la activa. */
+@Composable
+private fun WebTabBar(route: String, me: com.sampcity.social.data.Me?, counts: com.sampcity.social.data.NotifCount, freq: Int, nav: Navigator) {
+    val c = MaterialTheme.colorScheme
+    data class T(val r: String, val icon: String, val badge: Int, val label: String)
+    val tabs = listOf(T("home", "inicio", 0, "Inicio"), T("reels", "videos", 0, "Reels"), T("friends", "comunidad", freq, "Solicitudes de amistad"), T("chats", "mensajes", counts.m, "Mensajes"), T("market", "marketplace", 0, "Marketplace"), T("notifications", "campana", counts.n, "Notificaciones"))
+    Column(Modifier.background(if (com.sampcity.social.ui.theme.LocalDark.current) androidx.compose.ui.graphics.Color(0xFF120C0F) else androidx.compose.ui.graphics.Color.White)) {
+        HorizontalDivider(color = c.outlineVariant)
+        Row(Modifier.fillMaxWidth().navigationBarsPadding()) {
+            tabs.forEach { t ->
+                val sel = route == t.r || (t.r == "reels" && route.startsWith("reels"))
+                Box(Modifier.weight(1f).height(60.dp).clickable(role = androidx.compose.ui.semantics.Role.Tab, onClickLabel = t.label) { nav.tab(t.r) }) {
+                    Box(Modifier.fillMaxWidth().height(3.dp).background(if (sel) androidx.compose.ui.graphics.Color(0xFFE8392F) else androidx.compose.ui.graphics.Color.Transparent))
+                    Box(Modifier.align(Alignment.Center)) { SIcon(t.icon, size = 27.dp) }
+                    if (t.badge > 0) Box(Modifier.align(Alignment.TopCenter).padding(top = 6.dp, start = 22.dp).defaultMinSize(minWidth = 18.dp, minHeight = 18.dp).background(androidx.compose.ui.graphics.Color(0xFFE8392F), androidx.compose.foundation.shape.CircleShape).border(2.dp, c.surface, androidx.compose.foundation.shape.CircleShape).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+                        Text(if (t.badge > 99) "99+" else t.badge.toString(), color = androidx.compose.ui.graphics.Color.White, fontSize = 10.sp, lineHeight = 14.sp)
+                    }
+                }
+            }
+            Box(Modifier.weight(1f).height(60.dp).clickable(role = androidx.compose.ui.semantics.Role.Tab, onClickLabel = "Mi perfil") { nav.tab("me") }) {
+                Box(Modifier.fillMaxWidth().height(3.dp).background(if (route == "me") androidx.compose.ui.graphics.Color(0xFFE8392F) else androidx.compose.ui.graphics.Color.Transparent))
+                if (me != null) Box(Modifier.align(Alignment.Center)) { Avatar(me.name, me.skin, 30.dp) }
+            }
         }
     }
 }

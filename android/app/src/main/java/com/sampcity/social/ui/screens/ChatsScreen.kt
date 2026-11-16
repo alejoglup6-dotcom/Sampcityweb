@@ -61,6 +61,7 @@ import com.sampcity.social.ui.components.ErrorBox
 import com.sampcity.social.ui.components.LoadingBox
 import com.sampcity.social.ui.components.LocalSnack
 import com.sampcity.social.ui.components.PlayerPickerDialog
+import com.sampcity.social.ui.components.SIcon
 import com.sampcity.social.ui.components.pretty
 import com.sampcity.social.ui.components.userMessage
 import com.sampcity.social.util.Clock
@@ -113,7 +114,7 @@ fun ChatsScreen(vm: ChatsVM = viewModel()) {
             title = { if (searching) OutlinedTextField(q, { q = it }, singleLine = true, placeholder = { Text("Buscar en mensajes…") }, modifier = Modifier.fillMaxWidth().padding(end = 8.dp)) else Text("Mensajes") },
             actions = {
                 if (searching) IconButton({ searching = false; q = "" }) { Icon(Icons.Filled.Close, "Cerrar") }
-                else { IconButton({ searching = true }) { Icon(Icons.Outlined.Search, "Buscar") }; IconButton({ newGroup = true }) { Icon(Icons.Outlined.GroupAdd, "Nuevo grupo") }; IconButton({ newChat = true }) { Icon(Icons.Outlined.EditNote, "Nuevo mensaje") } }
+                else { IconButton({ searching = true }) { SIcon("buscar") }; IconButton({ newGroup = true }) { SIcon("comunidad") }; IconButton({ newChat = true }) { SIcon("mas") } }
             },
         )
     }) { pad ->
@@ -134,7 +135,7 @@ fun ChatsScreen(vm: ChatsVM = viewModel()) {
                     if (vm.rows.isEmpty()) item { EmptyBox("Aún no tienes conversaciones.", action = "Nuevo mensaje", onAction = { newChat = true }) }
                     items(vm.rows, key = { (it.room?.let { r -> "r$r" } ?: it.name) }) { r ->
                         Row(Modifier.fillMaxWidth().clickable { if (r.room != null) nav.room(r.room) else nav.chat(r.name) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (r.room != null) Box(Modifier.size(50.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Group, null, tint = MaterialTheme.colorScheme.onPrimaryContainer) }
+                            if (r.room != null) Box(Modifier.size(50.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) { SIcon("comunidad", size = 26.dp) }
                             else Avatar(r.name, r.skin, 50.dp, online = r.online)
                             Column(Modifier.padding(horizontal = 12.dp).weight(1f)) {
                                 Text(if (r.room != null) r.name else r.name.pretty(), style = MaterialTheme.typography.titleSmall, fontWeight = if (r.unread > 0) FontWeight.Bold else FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
