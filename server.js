@@ -26,6 +26,7 @@ const q = async (sql, p) => (await pool.query(sql, p))[0];
 
 // ---- Sesión: cookie firmada (HMAC), HttpOnly, 7 días ----
 const sign = (v) => crypto.createHmac("sha256", SECRET).update(v).digest("base64url");
+const LOGOUT = new Map(); // jugador → momento del último «cerrar sesión en todos los dispositivos»
 function setSession(res, id, extra = "") {
   const v = `${id}.${Date.now() + 7 * 864e5}`;
   res.append("Set-Cookie", `sc=${v}.${sign(v)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800${HTTPS ? "; Secure" : ""}${extra}`);
@@ -35,7 +36,7 @@ function sessionId(req) {
   if (!m) return null;
   const [id, exp, sig] = m[1].split(".");
   const ok = id && exp && sig && sig.length === sign(`${id}.${exp}`).length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(sign(`${id}.${exp}`)));
-  return ok && Number(exp) > Date.now() && /^\d+$/.test(id) ? Number(id) : null;
+  return ok && Number(exp) > Date.now() && /^\d+$/.test(id) && Number(exp) - 7 * 864e5 >= (LOGOUT.get(Number(id)) || 0) ? Number(id) : null; // la cookie debe ser posterior al último cierre global
 }
 const clearSession = (res) => res.append("Set-Cookie", `sc=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${HTTPS ? "; Secure" : ""}`);
 
@@ -105,7 +106,7 @@ app.use("/api", (req, res, next) => {
 });
 
 app.use((req, res, next) => {
-  if (req.tebexWebhook || req.path === "/api/photos" || req.path === "/api/market" || req.path === "/api/profile/photo") return next(); // estas rutas traen su propio lector (aceptan una foto)
+  if (req.tebexWebhook || req.path === "/api/photos" || req.path === "/api/market" || req.path === "/api/profile/photo" || /^\/api\/chat\/\w{1,24}$/.test(req.path)) return next(); // estas rutas traen su propio lector (aceptan una foto)
   return express.json({ limit: "20kb" })(req, res, next);
 });
 const me = async (req) => {
@@ -126,6 +127,7 @@ const NJ = "FROM web_notifs n LEFT JOIN web_posts p ON p.id = n.post_id LEFT JOI
 async function notify(to, actor, type, postId = null, body = "") {
   try {
     if (!to || String(to) === String(actor.id)) return; // nadie se notifica a sí mismo
+    if (await sec.muted(to, type, actor.id)) return; // bloqueo entre ambos, o tipo de aviso silenciado en Configuración
     if (ONCE.has(type) && (await q("SELECT 1 FROM web_notifs WHERE player_id = ? AND actor_id = ? AND type = ? AND post_id <=> ? LIMIT 1", [to, actor.id, type, postId])).length) return;
     if (UNREAD_ONCE.has(type) && (await q("SELECT 1 FROM web_notifs WHERE player_id = ? AND type = ? AND post_id <=> ? AND seen = 0 LIMIT 1", [to, type, postId])).length) return;
     await q("INSERT INTO web_notifs (player_id, actor_id, type, post_id, body) VALUES (?, ?, ?, ?, ?)", [to, actor.id, type, postId, String(body).replace(/\s+/g, " ").trim().slice(0, 140)]);
@@ -218,9 +220,10 @@ app.get("/api/me", async (req, res) => {
 
 require("./routes/discord")(app, { crypto, store, E, BASE, q, sessionId, me, notify });
 
-const { friendIds, friendStates } = require("./routes/amigos")(app, { str, pid, SKIN_COL, pool, q, sessionId, hit, me, NJ, notify, unreadCount });
+const sec = require("./routes/seguridad")(app, { crypto, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, checkPassword, setSession, LOGOUT });
+const { friendIds, friendStates } = require("./routes/amigos")(app, { sec, str, pid, SKIN_COL, pool, q, sessionId, hit, me, NJ, notify, unreadCount });
 
-const { STORY_LIVE, FFMPEG, attach, cleanup } = require("./routes/contenido")(app, { path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates });
+const { STORY_LIVE, FFMPEG, attach, cleanup } = require("./routes/contenido")(app, { sec, path, express, E, str, pid, MIN_POST, SKIN_COL, SKIN_URL, CH, IMG_MAX, VID_MAX, VID_SECS, REEL_MAX, REEL_SECS, ADMIN_LEVELS, q, sessionId, hit, captchaOk, me, BCAST, notify, mentioned, postOwner, friendIds, friendStates });
 
 require("./routes/guia")(app, { path, str, MIN_POST, q, hit, me, ROOT: __dirname });
 
@@ -229,7 +232,7 @@ require("./routes/launcher")(app, { path, store, E, q, attach, ROOT: __dirname }
 // ---- SEO: robots.txt, sitemap.xml e index con la URL real (canonical / Open Graph) ----
 const fs = require("fs");
 // Cada página es su propio archivo en public/ con su propia URL (ver README)
-const ROUTES = { "/": "index", "/reels": "reels", "/marketplace": "marketplace", "/feed": "feed", "/amigos": "amigos", "/mensajes": "mensajes", "/noticias": "noticias", "/actualizaciones": "actualizaciones", "/faq": "faq", "/fotos": "fotos", "/staff": "staff", "/solicitar-staff": "solicitar-staff", "/clasificacion": "clasificacion", "/reglas": "reglas", "/testimonios": "testimonios", "/contacto": "contacto", "/comunidad": "comunidad", "/perfil": "perfil", "/notificaciones": "notificaciones", "/verificar": "verificar", "/guia": "guia" };
+const ROUTES = { "/": "index", "/reels": "reels", "/marketplace": "marketplace", "/feed": "feed", "/amigos": "amigos", "/mensajes": "mensajes", "/configuracion": "configuracion", "/buscar": "buscar", "/noticias": "noticias", "/actualizaciones": "actualizaciones", "/faq": "faq", "/fotos": "fotos", "/staff": "staff", "/solicitar-staff": "solicitar-staff", "/clasificacion": "clasificacion", "/reglas": "reglas", "/testimonios": "testimonios", "/contacto": "contacto", "/comunidad": "comunidad", "/perfil": "perfil", "/notificaciones": "notificaciones", "/verificar": "verificar", "/guia": "guia" };
 const PAGES = {}, VER = Date.now().toString(36); // la versión cambia en cada arranque: el navegador siempre baja el CSS/JS nuevo
 const USER_PAGE = fs.readFileSync(path.join(__dirname, "public", "usuario.html"), "utf8").replace(/\?v=1/g, "?v=" + VER);
 app.get("/u/:name", (req, res) => (/^\w{1,24}$/.test(req.params.name) ? res.type("html").set("Cache-Control", "no-cache").send(USER_PAGE) : res.status(404).sendFile(path.join(__dirname, "public", "404.html"))));
@@ -254,9 +257,10 @@ app.get("/p/:id(\\d+)", async (req, res) => { // enlace propio de cada publicaci
   res.type("html").set("Cache-Control", "no-cache").send(PUB_PAGE.replace(/\{\{OGTITLE\}\}/g, oe(t)).replace(/\{\{OGDESC\}\}/g, oe(d)).replace(/\{\{OGIMG\}\}/g, oe(img)).replace(/\{\{OGURL\}\}/g, oe(`${BASE}/p/${id}`)));
 });
 app.get("/robots.txt", (req, res) => res.type("text/plain").send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /auth/\nDisallow: /notificaciones\nDisallow: /amigos\n\nSitemap: ${BASE}/sitemap.xml\n`));
-app.get("/sitemap.xml", (req, res) => res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Object.keys(ROUTES).filter((u) => u !== "/perfil" && u !== "/notificaciones" && u !== "/amigos" && u !== "/mensajes" && u !== "/verificar").map((u) => `  <url><loc>${BASE}${u}</loc><changefreq>${u === "/" || u === "/noticias" ? "daily" : "weekly"}</changefreq><priority>${u === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}\n</urlset>\n`));
+app.get("/sitemap.xml", (req, res) => res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${Object.keys(ROUTES).filter((u) => u !== "/perfil" && u !== "/notificaciones" && u !== "/amigos" && u !== "/mensajes" && u !== "/configuracion" && u !== "/buscar" && u !== "/verificar").map((u) => `  <url><loc>${BASE}${u}</loc><changefreq>${u === "/" || u === "/noticias" ? "daily" : "weekly"}</changefreq><priority>${u === "/" ? "1.0" : "0.7"}</priority></url>`).join("\n")}\n</urlset>\n`));
 app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h", setHeaders: (res, f) => { if (/[\\/]assets[\\/]fonts[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=31536000, immutable"); else if (/[\\/]assets[\\/]/.test(f)) res.set("Cache-Control", "public, max-age=86400"); } }));
-const social = require("./routes/social")(app, { express, str, pid, SKIN_COL, SKIN_URL, q, sessionId, hit, me });
+const social = require("./routes/social")(app, { sec, friendIds, express, str, pid, SKIN_COL, SKIN_URL, q, sessionId, hit, me });
+require("./routes/extra")(app, { sec, attach, friendIds, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me, notify });
 require("./routes/market")(app, { express, str, pid, MIN_POST, SKIN_COL, q, sessionId, hit, me });
 
 require("./routes/vacantes")(app, { E, str, pid, MIN_POST, SKIN_COL, ADMIN_LEVELS, q, hit, me, BCAST, notify });
@@ -277,10 +281,23 @@ app.use((err, req, res, next) => {
   await q("CREATE TABLE IF NOT EXISTS web_signups (player_id INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_likes (post_id INT NOT NULL, player_id INT NOT NULL, PRIMARY KEY (post_id, player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_comments (id INT AUTO_INCREMENT PRIMARY KEY, post_id INT NOT NULL, player_id INT NOT NULL, author VARCHAR(24) NOT NULL, body VARCHAR(300) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY p (post_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_settings (player_id INT NOT NULL PRIMARY KEY, msg TINYINT NOT NULL DEFAULT 0, prof TINYINT NOT NULL DEFAULT 0, tag TINYINT NOT NULL DEFAULT 0, nmask INT NOT NULL DEFAULT 0, logout_at BIGINT NOT NULL DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_blocks (a INT NOT NULL, b INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (a, b), KEY b (b)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_reports (id INT AUTO_INCREMENT PRIMARY KEY, reporter INT NOT NULL, kind VARCHAR(8) NOT NULL, target INT NOT NULL, reason VARCHAR(20) NOT NULL, note VARCHAR(300) NOT NULL DEFAULT '', status TINYINT NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY st (status, id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await sec.loadLogout();
+  const addCol = async (tb, col, ddl) => { if (!(await q(`SHOW COLUMNS FROM ${tb} LIKE '${col}'`)).length) await q(`ALTER TABLE ${tb} ADD COLUMN ${col} ${ddl}`); }; // columnas nuevas sobre tablas que ya existen
+  await addCol("web_posts", "vis", "TINYINT NOT NULL DEFAULT 0"); await addCol("web_posts", "share_id", "INT NULL"); await addCol("web_posts", "edited_at", "DATETIME NULL");
+  await addCol("web_comments", "parent", "INT NULL"); await addCol("web_comments", "edited_at", "DATETIME NULL");
+  await q("CREATE TABLE IF NOT EXISTS web_clikes (comment_id INT NOT NULL, player_id INT NOT NULL, PRIMARY KEY (comment_id, player_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_hidden (player_id INT NOT NULL, post_id INT NOT NULL, PRIMARY KEY (player_id, post_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  await q("CREATE TABLE IF NOT EXISTS web_follows (a INT NOT NULL, b INT NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (a, b), KEY b (b)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_profile (player_id INT NOT NULL PRIMARY KEY, avatar INT NULL, cover INT NULL, bio VARCHAR(160) NOT NULL DEFAULT '') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+  for (const [c, d] of [["city", "VARCHAR(40) NOT NULL DEFAULT ''"], ["job", "VARCHAR(60) NOT NULL DEFAULT ''"], ["link", "VARCHAR(120) NOT NULL DEFAULT ''"], ["bday", "CHAR(5) NOT NULL DEFAULT ''"], ["pin", "INT NULL"]]) await addCol("web_profile", c, d);
   await q("CREATE TABLE IF NOT EXISTS web_msgs (id INT AUTO_INCREMENT PRIMARY KEY, a INT NOT NULL, b INT NOT NULL, body VARCHAR(1000) NOT NULL, seen TINYINT NOT NULL DEFAULT 0, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY ab (a, b, id), KEY ba (b, a, id), KEY bs (b, seen)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   if (!(await q("SHOW COLUMNS FROM web_likes LIKE 'kind'")).length) await q("ALTER TABLE web_likes ADD COLUMN kind TINYINT NOT NULL DEFAULT 1"); // reacciones: 1 me gusta, 2 me encanta, 3 me divierte, 4 me asombra, 5 me entristece, 6 me enoja
   await social.loadAv();
+  await addCol("web_msgs", "img", "INT NULL");
+  await q("CREATE TABLE IF NOT EXISTS web_chat_clear (player_id INT NOT NULL, peer INT NOT NULL, upto INT NOT NULL DEFAULT 0, PRIMARY KEY (player_id, peer)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_market (id INT AUTO_INCREMENT PRIMARY KEY, seller INT NOT NULL, cat VARCHAR(12) NOT NULL, title VARCHAR(80) NOT NULL, price BIGINT NOT NULL DEFAULT 0, body VARCHAR(600) NOT NULL DEFAULT '', img INT NULL, status TINYINT NOT NULL DEFAULT 1, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY st (status, id), KEY seller (seller)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_images (id INT AUTO_INCREMENT PRIMARY KEY, mime VARCHAR(16) NOT NULL, data MEDIUMBLOB NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
   await q("CREATE TABLE IF NOT EXISTS web_contact (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(80) NOT NULL, contact VARCHAR(80) NOT NULL, body VARCHAR(1000) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");

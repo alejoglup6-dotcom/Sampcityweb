@@ -10,7 +10,7 @@ app.get("/api/market", async (req, res) => {
   if (req.query.mine === "1") { if (!uid) return res.status(401).json({ error: "Inicia sesión" }); where.push("m.seller = ?"); wp.push(uid); } else where.push("m.status = 1");
   if (cat) { where.push("m.cat = ?"); wp.push(cat); }
   if (s) { where.push("(m.title LIKE ? OR m.body LIKE ?)"); wp.push(like(s), like(s)); }
-  const rows = await q(`SELECT m.id, m.cat, m.title, m.price, m.body, m.img, m.status, m.created_at, p.name AS seller, p.${SKIN_COL} AS skin, p.connected, (m.seller = ?) AS mine FROM web_market m JOIN player p ON p.id = m.seller WHERE ${where.join(" AND ")} ORDER BY m.id DESC LIMIT ? OFFSET ?`, [uid, ...wp, PER + 1, pg * PER]); // +1 para saber si hay más
+  const rows = await q(`SELECT m.id, m.cat, m.title, m.price, m.body, m.img, m.status, m.created_at, p.name AS seller, p.${SKIN_COL} AS skin, p.connected, (m.seller = ?) AS mine FROM web_market m JOIN player p ON p.id = m.seller WHERE ${where.join(" AND ")} ORDER BY ${req.query.sort === "barato" ? "m.price ASC, m.id DESC" : req.query.sort === "caro" ? "m.price DESC, m.id DESC" : "m.id DESC"} LIMIT ? OFFSET ?`, [uid, ...wp, PER + 1, pg * PER]); // +1 para saber si hay más
   res.json(rows.map((r) => ({ ...r, price: Number(r.price), mine: Number(r.mine) === 1, img: r.img ? `/img/${r.img}` : "" })));
 });
 
@@ -34,6 +34,16 @@ app.post("/api/market", express.json({ limit: "1500kb" }), async (req, res) => {
   }
   const r = await q("INSERT INTO web_market (seller, cat, title, price, body, img) VALUES (?, ?, ?, ?, ?, ?)", [u.id, cat, title, price, body, img]);
   res.json({ ok: true, id: r.insertId });
+});
+
+// Editar un anuncio propio (texto, precio y categoría)
+app.put("/api/market/:id(\\d+)", async (req, res) => {
+  const u = await me(req); if (!u) return res.status(401).json({ error: "Inicia sesión" });
+  const cat = str(req.body.cat), title = str(req.body.title).trim().slice(0, 80), body = str(req.body.body).trim().slice(0, 600), price = Math.floor(Number(req.body.price));
+  if (!CATS.includes(cat) || title.length < 3 || !Number.isSafeInteger(price) || price < 0 || price > 2000000000) return res.status(400).json({ error: "Revisa la categoría, el título y el precio" });
+  const r = await q("UPDATE web_market SET cat = ?, title = ?, price = ?, body = ? WHERE id = ? AND seller = ?", [cat, title, price, body, pid(req.params.id), u.id]);
+  if (!r.affectedRows && !(await q("SELECT 1 FROM web_market WHERE id = ? AND seller = ?", [pid(req.params.id), u.id])).length) return res.status(403).json({ error: "No es tu anuncio" });
+  res.json({ ok: true });
 });
 
 // Marcar como vendido / volver a activar (solo quien lo publicó)

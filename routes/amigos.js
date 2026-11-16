@@ -1,5 +1,5 @@
 // Rutas de amigos. Extraído de server.js sin cambiar su comportamiento.
-module.exports = (app, { str, pid, SKIN_COL, pool, q, sessionId, hit, me, NJ, notify, unreadCount }) => {
+module.exports = (app, { sec, str, pid, SKIN_COL, pool, q, sessionId, hit, me, NJ, notify, unreadCount }) => {
 // ---- Notificaciones (API) ----
 app.get("/api/notifications/count", async (req, res) => {
   const id = sessionId(req);
@@ -58,6 +58,7 @@ const target = async (req, res, u) => { // jugador indicado en el cuerpo/ruta (n
 app.post("/api/friends/request", async (req, res) => {
   const u = await me(req); if (!u) return res.status(401).json({ error: "Inicia sesión" });
   const t = await target(req, res, u); if (!t) return;
+  if (await sec.isBlocked(u.id, t.id)) return res.status(403).json({ error: "No puedes agregar a este jugador" });
   if (!hit("fr|" + u.id, 20, 60000)) return res.status(429).json({ error: "Vas muy rápido, espera un momento" });
   const st = (await friendStates(u.id, [t.id])).get(Number(t.id));
   if (st === "friends" || st === "sent") return res.json({ state: st });
